@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Profile {
+  id            Int      @id @default(autoincrement())
+  mageName      String
+  avatarColour  String   @default("#B68A3A")
+  totalXP       Int      @default(0)
+  rank          String   @default("Novice Scribe")
+  auraAlignment String   @default("bright") // bright | unstable | shadow_creeping | shadow_drift
+  shadowScore   Int      @default(0)
+  weeklyGoal    Int      @default(5)
+  quillEnergy   Int      @default(10)
+  createdAt     DateTime @default(now())
+
+  // Attributes (5 Schools of Magic)
+  attrLogic   Int @default(0)
+  attrInsight Int @default(0)
+  attrFocus   Int @default(0)
+  attrCraft   Int @default(0)
+  attrWisdom  Int @default(0)
+
+  // Relations
+  quizAttempts      QuizAttempt[]
+  examSessions      ExamSession[]
+  writingSessions   WritingSession[]
+  dailyActivity     DailyActivity[]
+  badges            Badge[]
+  artifacts         ProfileArtifact[]
+  integrityEvents   IntegrityEvent[]
+  subjectStats      SubjectStat[]
+  knowledgeMastery  KnowledgeMastery[]
+  fieldJournal      FieldJournalEntry[]
+}
+
+model QuizAttempt {
+  id                 Int      @id @default(autoincrement())
+  profileId          Int
+  profile            Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  region             String   // "Forest of Patterns" | "Clocktower of Logic" | etc.
+  knowledgePointCode String?  // e.g. "QR-02", "AR-06"
+  topic              String?
+  questionHash       String
+  questionText       String
+  optionsJson        String   // JSON string
+  correctAnswer      String
+  userAnswer         String?
+  isCorrect          Boolean  @default(false)
+  firstChoiceCorrect Boolean  @default(false) // instinctive understanding signal
+  changedAnswer      Boolean  @default(false)
+  hintsUsed          Int      @default(0)
+  sparksEarned       Int      @default(0)
+  timeSpentMs        Int?
+  minimumReadTimeMs  Int?
+  reflectionText     String?
+  attemptedAt        DateTime @default(now())
+}
+
+model ExamSession {
+  id              Int      @id @default(autoincrement())
+  profileId       Int
+  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  region          String
+  durationMinutes Int
+  numQuestions    Int
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+  totalSparks     Int?
+  maxSparks       Int?
+  percentage      Float?
+  status          String   @default("in_progress") // in_progress | completed | abandoned
+  questions       ExamQuestion[]
+}
+
+model ExamQuestion {
+  id            Int         @id @default(autoincrement())
+  sessionId     Int
+  session       ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionIndex Int
+  questionText  String
+  optionsJson   String
+  correctAnswer String
+  explanation   String
+  knowledgePointCode String?
+  topic         String?
+  difficulty    String
+  userAnswer    String?
+  isCorrect     Boolean?
+  timeSpentMs   Int?
+  hintsUsed     Int         @default(0)
+}
+
+model WritingSession {
+  id               Int      @id @default(autoincrement())
+  profileId        Int
+  profile          Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  imageDescription String
+  imagePath        String?  // local path: public/writing-images/<id>.png
+  writingType      String   // narrative | descriptive | persuasive
+  promptCue        String
+  userResponse     String?
+  feedbackJson     String?  // {scores, praise, tip, sparksEarned}
+  sparksEarned     Int      @default(0)
+  createdAt        DateTime @default(now())
+}
+
+model KnowledgeMastery {
+  id                 Int      @id @default(autoincrement())
+  profileId          Int
+  profile            Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  region             String   // "Clocktower of Logic" | "Forest of Patterns" | "Lake of Reflection"
+  knowledgePointCode String   // "QR-02", "AR-06", etc.
+  masteryScore       Float    @default(0)
+  masteryLevel       Int      @default(1)        // 1–5
+  totalAttempts      Int      @default(0)
+  firstChoiceCorrect Int      @default(0)        // count
+  totalCorrect       Int      @default(0)
+  avgTimeMs          Float    @default(0)
+  avgHintsUsed       Float    @default(0)
+  lastAttemptedAt    DateTime?
+  updatedAt          DateTime @updatedAt
+
+  @@unique([profileId, knowledgePointCode])
+}
+
+model FieldJournalEntry {
+  id                 Int      @id @default(autoincrement())
+  profileId          Int
+  profile            Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  knowledgePointCode String
+  title              String
+  storyText          String
+  spotQuestion       String
+  studentAnswer      String?  // optional — kid writes their observation
+  discoveredAt       DateTime @default(now())
+}
+
+model DailyActivity {
+  id           Int      @id @default(autoincrement())
+  profileId    Int
+  profile      Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  activityDate String   // YYYY-MM-DD
+  questCount   Int      @default(0)
+  examCount    Int      @default(0)
+  writingCount Int      @default(0)
+  sparksEarned Int      @default(0)
+
+  @@unique([profileId, activityDate])
+}
+
+model Badge {
+  id        Int      @id @default(autoincrement())
+  profileId Int
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  badgeKey  String
+  tier      String   // bronze | silver | gold
+  earnedAt  DateTime @default(now())
+
+  @@unique([profileId, badgeKey, tier])
+}
+
+model Artifact {
+  id         Int               @id @default(autoincrement())
+  key        String            @unique
+  name       String
+  category   String            // wand | spellbook | lens | rune | compass | cloak | familiar
+  rarity     String            // common | rare | legendary
+  loreText   String
+  unlockRule String            // e.g. "rank:Spell Scholar"
+  profiles   ProfileArtifact[]
+}
+
+model ProfileArtifact {
+  profileId  Int
+  artifactId Int
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  artifact   Artifact @relation(fields: [artifactId], references: [id])
+  unlockedAt DateTime @default(now())
+  equipped   Boolean  @default(false)
+
+  @@id([profileId, artifactId])
+}
+
+model IntegrityEvent {
+  id             Int      @id @default(autoincrement())
+  profileId      Int
+  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  eventType      String   // rapid_retry | fast_answer | hint_abuse | skip_reflection | impossible_score
+  severity       Int      // weight added to shadowScore
+  sourceSignal   String   // human-readable description
+  recoveryStatus String   @default("pending") // pending | recovering | resolved
+  createdAt      DateTime @default(now())
+}
+
+model SubjectStat {
+  profileId       Int
+  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  region          String
+  totalAttempts   Int      @default(0)
+  correctAttempts Int      @default(0)
+  totalSparks     Int      @default(0)
+  bestStreak      Int      @default(0)
+  lastPracticed   DateTime?
+
+  @@id([profileId, region])
+}
+
+
+model AppSettings {
+  id              Int    @id @default(autoincrement())
+  key             String @unique
+  value           String
+}

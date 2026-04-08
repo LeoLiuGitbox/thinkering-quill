@@ -1,0 +1,735 @@
+"use client";
+
+import { useEffect, useState, useRef, useCallback } from "react";
+import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
+import GameNav from "@/components/layout/GameNav";
+import ARGridView from "@/components/game/ARGridView";
+
+interface Question {
+  questionText: string;
+  context?: string;
+  passageTitle?: string;
+  options?: string[];
+  correct: string;
+  explanation: string;
+  knowledgePointCode: string;
+  estimatedReadTimeMs: number;
+  difficulty?: string;
+  // AR fields
+  type?: string;
+  gridData?: any[][];
+  options_ar?: any[];
+}
+
+interface QuestionState {
+  question: Question;
+  questionHash: string;
+  userAnswer?: string;
+  firstChoice?: string;
+  startTimeMs?: number;
+  timeSpentMs?: number;
+  hintsUsed: number;
+  flagged: boolean;
+  hint1?: string;
+  hint2?: string;
+  showHint1: boolean;
+  showHint2: boolean;
+}
+
+function hashQ(text: string, opts: string[]): string {
+  const raw = [text, ...opts].join("|");
+  let hash = 5381;
+  for (let i = 0; i < raw.length; i++) {
+    hash = ((hash << 5) + hash) ^ raw.charCodeAt(i);
+    hash = hash & 0x7fffffff;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+function getOptionLabel(idx: number): string {
+  return ["A", "B", "C", "D"][idx] || String.fromCharCode(65 + idx);
+}
+
+export default function QuestPlayPage() {
+  const router = useRouter();
+  const params = useParams();
+  const region = decodeURIComponent(params.region as string);
+
+  const [profile, setProfile] = useState<any>(null);
+  const [questions, setQuestions] = useState<QuestionState[]>([]);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [sessionComplete, setSessionComplete] = useState(false);
+  const [sessionResults, setSessionResults] = useState<{
+    totalSparks: number;
+    correctCount: number;
+    totalCount: number;
+    rankUp?: string;
+  } | null>(null);
+  const [optionsUnlocked, setOptionsUnlocked] = useState(false);
+  const [loadingHint, setLoadingHint] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [reflectionText, setReflectionText] = useState("");
+  const [showReflection, setShowReflection] = useState(false);
+
+  const unlockTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    const profileId = localStorage.getItem("activeProfileId");
+    if (!profileId) { router.push("/login"); return; }
+
+    const paramsStr = sessionStorage.getItem("questParams");
+    if (!paramsStr) { router.push(`/quest/${encodeURIComponent(region)}`); return; }
+
+    const questParams = JSON.parse(paramsStr);
+    loadProfileAndGenerate(profileId, questParams);
+  }, [region, router]);
+
+  async function loadProfileAndGenerate(profileId: string, questParams: any) {
+    try {
+      const profileRes = await fetch(`/api/profile/${profileId}`);
+      const profileData = await profileRes.json();
+      setProfile(profileData.profile);
+
+      // Generate questions
+      const res = await fetch("/api/quest/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(questParams),
+      });
+      const data = await res.json();
+
+      const isAR = region === "Forest of Patterns";
+      const rawQs: Question[] = data.questions || [];
+
+      const states: QuestionState[] = rawQs.map((q: Question) => {
+        const opts = q.options || [];
+        return {
+          question: q,
+          questionHash: hashQ(q.questionText, opts),
+          hintsUsed: 0,
+          flagged: false,
+          showHint1: false,
+          showHint2: false,
+        };
+      });
+
+      setQuestions(states);
+      setGenerating(false);
+      setLoading(false);
+
+      // Start read timer for first question
+      startReadTimer(0, states);
+    } catch (err) {
+      console.error("Failed to generate questions:", err);
+      setLoading(false);
+      setGenerating(false);
+    }
+  }
+
+  function startReadTimer(idx: number, qs?: QuestionState[]) {
+    const pool = qs || questions;
+    const q = pool[idx];
+    if (!q) return;
+
+    setOptionsUnlocked(false);
+    // Update start time
+    const updated = [...pool];
+    updated[idx] = { ...updated[idx], startTimeMs: Date.now() };
+    if (qs) setQuestions(updated);
+    else setQuestions(updated);
+
+    const minTime = q.question.estimatedReadTimeMs || 4000;
+    clearTimeout(unlockTimerRef.current);
+    unlockTimerRef.current = setTimeout(() => setOptionsUnlocked(true), minTime);
+  }
+
+  useEffect(() => {
+    if (questions.length > 0 && !generating) {
+      startReadTimer(currentIdx);
+    }
+    return () => clearTimeout(unlockTimerRef.current);
+  }, [currentIdx, generating]);
+
+  function navigateTo(idx: number) {
+    // Save time spent on current question
+    if (questions[currentIdx]?.startTimeMs) {
+      const updated = [...questions];
+      updated[currentIdx] = {
+        ...updated[currentIdx],
+        timeSpentMs: Date.now() - (updated[currentIdx].startTimeMs || Date.now()),
+      };
+      setQuestions(updated);
+    }
+    setCurrentIdx(idx);
+    setShowExplanation(false);
+  }
+
+  function selectAnswer(answer: string) {
+    if (submitting) return;
+    const q = questions[currentIdx];
+
+    const updated = [...questions];
+    if (!q.firstChoice) {
+      updated[currentIdx] = { ...updated[currentIdx], firstChoice: answer, userAnswer: answer };
+    } else {
+      updated[currentIdx] = { ...updated[currentIdx], userAnswer: answer };
+    }
+    setQuestions(updated);
+  }
+
+  function toggleFlag() {
+    const updated = [...questions];
+    updated[currentIdx] = { ...updated[currentIdx], flagged: !updated[currentIdx].flagged };
+    setQuestions(updated);
+  }
+
+  async function loadHint(level: 1 | 2) {
+    const q = questions[currentIdx];
+    if (loadingHint) return;
+    if (level === 1 && q.hint1) { const u = [...questions]; u[currentIdx] = { ...u[currentIdx], showHint1: true }; setQuestions(u); return; }
+    if (level === 2 && q.hint2) { const u = [...questions]; u[currentIdx] = { ...u[currentIdx], showHint2: true }; setQuestions(u); return; }
+
+    setLoadingHint(true);
+    const isAR = region === "Forest of Patterns";
+    try {
+      const res = await fetch("/api/hint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hintLevel: level,
+          questionText: q.question.questionText,
+          options: q.question.options || [],
+          knowledgePointName: q.question.knowledgePointCode,
+          isAbstractReasoning: isAR,
+          wrongOption: q.question.options?.[3] || "",
+        }),
+      });
+      const data = await res.json();
+      const updated = [...questions];
+      if (level === 1) {
+        updated[currentIdx] = {
+          ...updated[currentIdx],
+          hint1: data.hint,
+          showHint1: true,
+          hintsUsed: updated[currentIdx].hintsUsed + 1,
+        };
+      } else {
+        updated[currentIdx] = {
+          ...updated[currentIdx],
+          hint2: data.hint,
+          showHint2: true,
+          hintsUsed: updated[currentIdx].hintsUsed + 1,
+        };
+      }
+      setQuestions(updated);
+    } finally {
+      setLoadingHint(false);
+    }
+  }
+
+  async function submitSession() {
+    setSubmitting(true);
+    const profileId = parseInt(localStorage.getItem("activeProfileId") || "0");
+    let totalSparks = 0;
+    let correctCount = 0;
+    const oldRank = profile?.rank;
+
+    for (const state of questions) {
+      if (!state.userAnswer) continue;
+      try {
+        const res = await fetch("/api/quest/attempt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            profileId,
+            region,
+            questionText: state.question.questionText,
+            optionsJson: JSON.stringify(state.question.options || []),
+            correctAnswer: state.question.correct,
+            userAnswer: state.userAnswer,
+            firstChoice: state.firstChoice,
+            knowledgePointCode: state.question.knowledgePointCode,
+            hintsUsed: state.hintsUsed,
+            timeSpentMs: state.timeSpentMs,
+            minimumReadTimeMs: state.question.estimatedReadTimeMs,
+          }),
+        });
+        const data = await res.json();
+        totalSparks += data.sparksEarned || 0;
+        if (data.isCorrect) correctCount++;
+
+        // Log integrity signals
+        if (data.integritySignal) {
+          await fetch("/api/integrity", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              profileId,
+              ...data.integritySignal,
+            }),
+          });
+        }
+      } catch (err) {
+        console.error("Failed to submit attempt:", err);
+      }
+    }
+
+    // Show reflection prompt (every session)
+    setShowReflection(true);
+    setSessionResults({
+      totalSparks,
+      correctCount,
+      totalCount: questions.length,
+    });
+    setSubmitting(false);
+  }
+
+  async function completeReflection() {
+    const profileId = parseInt(localStorage.getItem("activeProfileId") || "0");
+    if (reflectionText.trim()) {
+      await fetch("/api/quest/attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profileId,
+          region,
+          questionText: "reflection",
+          optionsJson: "[]",
+          correctAnswer: "A",
+          userAnswer: "A",
+          reflectionText: reflectionText.trim(),
+        }),
+      });
+    }
+    setShowReflection(false);
+    setSessionComplete(true);
+  }
+
+  const current = questions[currentIdx];
+  const isAR = region === "Forest of Patterns";
+  const answeredCount = questions.filter((q) => q.userAnswer).length;
+  const allViewed = currentIdx === questions.length - 1 || answeredCount === questions.length;
+
+  if (generating) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: "#0F1C3F" }}>
+        <GameNav profile={profile} />
+        <div className="text-center mt-20">
+          <div className="text-7xl mb-6 animate-pulse">📜</div>
+          <h2 className="text-2xl font-bold mb-3" style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}>
+            Preparing your challenges…
+          </h2>
+          <p style={{ color: "#B68A3A" }}>The Archive prepares questions tailored to your mastery</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (sessionComplete && sessionResults) {
+    return (
+      <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
+        <GameNav profile={profile} />
+        <div className="max-w-lg mx-auto px-6 py-16 text-center">
+          <div className="text-7xl mb-6">✨</div>
+          <h1 className="text-3xl font-bold mb-3" style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}>
+            Quest Complete!
+          </h1>
+          <p className="text-5xl font-bold mb-2" style={{ color: "#E7C777" }}>
+            +{sessionResults.totalSparks} ✦
+          </p>
+          <p className="text-lg mb-8" style={{ color: "#EADFC8" }}>
+            {sessionResults.correctCount} / {sessionResults.totalCount} correct
+          </p>
+
+          {/* Review answers */}
+          <div className="mb-8 text-left">
+            <h3 className="text-sm uppercase tracking-widest mb-4" style={{ color: "#B68A3A" }}>
+              Review your answers
+            </h3>
+            <div className="space-y-3">
+              {questions.map((state, i) => {
+                const isCorrect = state.userAnswer === state.question.correct;
+                return (
+                  <div
+                    key={i}
+                    className="p-4 rounded-xl"
+                    style={{
+                      background: "#1E2E5A",
+                      border: `1px solid ${isCorrect ? "#2E6B3A" : "#6B2E2E"}`,
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm flex-1" style={{ color: "#EADFC8" }}>
+                        {i + 1}. {state.question.questionText.slice(0, 100)}…
+                      </p>
+                      <span className="text-lg flex-shrink-0">{isCorrect ? "✅" : "❌"}</span>
+                    </div>
+                    {!isCorrect && (
+                      <p className="text-xs mt-2" style={{ color: "#EADFC8", opacity: 0.6 }}>
+                        Correct: {state.question.correct} | Your answer: {state.userAnswer || "skipped"}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <Link
+              href="/home"
+              className="flex-1 py-3 rounded-xl font-bold transition-all hover:opacity-90"
+              style={{
+                background: "transparent",
+                border: "1px solid #B68A3A",
+                color: "#E7C777",
+                fontFamily: "Georgia, serif",
+                textAlign: "center",
+              }}
+            >
+              Archive Hall
+            </Link>
+            <button
+              onClick={() => {
+                sessionStorage.setItem("questParams", JSON.stringify({
+                  profileId: profile.id,
+                  region,
+                  sessionLength: questions.length,
+                  difficulty: questions[0]?.question.difficulty || "Journeyman",
+                }));
+                router.push(`/quest/${encodeURIComponent(region)}/play`);
+              }}
+              className="flex-1 py-3 rounded-xl font-bold transition-all hover:scale-[1.02]"
+              style={{
+                background: "linear-gradient(135deg, #B68A3A, #E7C777)",
+                color: "#0F1C3F",
+                fontFamily: "Georgia, serif",
+              }}
+            >
+              Play again ✨
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showReflection) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#0F1C3F" }}>
+        <div className="max-w-lg w-full mx-auto px-6 py-12 text-center">
+          <div className="text-6xl mb-6">🤔</div>
+          <h2 className="text-2xl font-bold mb-3" style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}>
+            A moment of reflection
+          </h2>
+          <p className="text-base mb-6" style={{ color: "#EADFC8", opacity: 0.8 }}>
+            How did you figure out the trickiest question? What strategy helped you most?
+          </p>
+          <textarea
+            value={reflectionText}
+            onChange={(e) => setReflectionText(e.target.value)}
+            placeholder="Write your thoughts here (optional)…"
+            rows={4}
+            className="w-full px-4 py-3 rounded-xl mb-6 outline-none resize-none"
+            style={{
+              background: "#1E2E5A",
+              border: "1px solid #B68A3A",
+              color: "#EADFC8",
+              fontFamily: "Georgia, serif",
+            }}
+          />
+          <div className="flex gap-3">
+            <button
+              onClick={() => completeReflection()}
+              className="flex-1 py-3 rounded-xl text-sm transition-all"
+              style={{ color: "#B68A3A", border: "1px solid #B68A3A33" }}
+            >
+              Skip (+0 ✦)
+            </button>
+            <button
+              onClick={completeReflection}
+              className="flex-1 py-3 rounded-xl font-bold transition-all hover:scale-[1.02]"
+              style={{
+                background: "linear-gradient(135deg, #B68A3A, #E7C777)",
+                color: "#0F1C3F",
+                fontFamily: "Georgia, serif",
+              }}
+            >
+              {reflectionText.trim() ? "Submit (+8 ✦)" : "Continue"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!current) return null;
+
+  return (
+    <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
+      <GameNav profile={profile} />
+
+      <main className="max-w-3xl mx-auto px-6 py-8">
+        {/* Top Bar */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <span style={{ color: "#B68A3A" }} className="text-sm">
+              Question {currentIdx + 1} of {questions.length}
+            </span>
+            {current.question.knowledgePointCode && (
+              <span
+                className="text-xs px-2 py-0.5 rounded"
+                style={{ background: "#1E2E5A", color: "#B68A3A", border: "1px solid #B68A3A33" }}
+              >
+                {current.question.knowledgePointCode}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleFlag}
+              className="p-2 rounded-lg text-sm transition-all"
+              style={{
+                background: current.flagged ? "#B68A3A22" : "transparent",
+                color: current.flagged ? "#E7C777" : "#B68A3A",
+              }}
+            >
+              {current.flagged ? "⚑ Flagged" : "⚑ Flag"}
+            </button>
+          </div>
+        </div>
+
+        {/* Crystal Navigator */}
+        <div className="flex items-center gap-1 flex-wrap mb-6">
+          {questions.map((q, i) => (
+            <button
+              key={i}
+              onClick={() => navigateTo(i)}
+              className="w-8 h-8 rounded-full text-xs font-bold transition-all hover:scale-110 border"
+              style={{
+                background: i === currentIdx
+                  ? "#E7C777"
+                  : q.userAnswer
+                  ? (q.userAnswer === q.question.correct ? "#2E6B3A" : "#6B2E2E")
+                  : q.flagged
+                  ? "#B68A3A33"
+                  : "#1E2E5A",
+                color: i === currentIdx ? "#0F1C3F" : "#EADFC8",
+                borderColor: i === currentIdx ? "#E7C777" : q.flagged ? "#B68A3A" : "#B68A3A22",
+              }}
+            >
+              {q.flagged && !q.userAnswer ? "⚑" : i + 1}
+            </button>
+          ))}
+        </div>
+
+        {/* Context / Passage */}
+        {current.question.context && (
+          <div
+            className="p-5 rounded-xl mb-6 text-sm leading-relaxed"
+            style={{ background: "#1A2545", border: "1px solid #B68A3A33", color: "#EADFC8" }}
+          >
+            {current.question.passageTitle && (
+              <p className="font-bold mb-2" style={{ color: "#E7C777" }}>
+                {current.question.passageTitle}
+              </p>
+            )}
+            <p style={{ whiteSpace: "pre-wrap" }}>{current.question.context}</p>
+          </div>
+        )}
+
+        {/* Question Card */}
+        <div
+          className="p-6 rounded-2xl mb-6"
+          style={{ background: "#1E2E5A", border: "1px solid #B68A3A44" }}
+        >
+          <p
+            className="text-lg leading-relaxed mb-6"
+            style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}
+          >
+            {current.question.questionText}
+          </p>
+
+          {/* AR Grid */}
+          {isAR && current.question.gridData && (
+            <div className="mb-6">
+              <ARGridView
+                gridData={current.question.gridData}
+                type={(current.question.type || "sequence") as "sequence" | "pattern" | "odd_one_out"}
+              />
+            </div>
+          )}
+
+          {/* Options */}
+          {!optionsUnlocked && (
+            <div className="text-center py-4">
+              <p className="text-sm animate-pulse" style={{ color: "#B68A3A" }}>
+                📖 Reading the question…
+              </p>
+            </div>
+          )}
+
+          {optionsUnlocked && (
+            <div className="space-y-3">
+              {isAR && current.question.options_ar ? (
+                // AR options rendered as small grids
+                <div className="grid grid-cols-2 gap-3">
+                  {(current.question.options_ar || []).map((cell: any, i: number) => {
+                    const label = getOptionLabel(i);
+                    const isSelected = current.userAnswer === label;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => selectAnswer(label)}
+                        className="p-3 rounded-xl transition-all hover:scale-[1.02]"
+                        style={{
+                          background: isSelected ? "#B68A3A22" : "#0F1C3F",
+                          border: `2px solid ${isSelected ? "#E7C777" : "#B68A3A44"}`,
+                        }}
+                      >
+                        <div className="text-xs mb-1" style={{ color: "#B68A3A" }}>{label}</div>
+                        <ARGridView gridData={[[cell]]} type="single" size="small" />
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                // MCQ options
+                (current.question.options || []).map((opt: string, i: number) => {
+                  const label = getOptionLabel(i);
+                  const isSelected = current.userAnswer === label;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => selectAnswer(label)}
+                      className="w-full text-left px-4 py-3 rounded-xl transition-all hover:opacity-90"
+                      style={{
+                        background: isSelected ? "#B68A3A22" : "#0F1C3F",
+                        border: `2px solid ${isSelected ? "#E7C777" : "#B68A3A44"}`,
+                        color: "#EADFC8",
+                        fontFamily: "Georgia, serif",
+                      }}
+                    >
+                      <span className="font-bold mr-2" style={{ color: "#B68A3A" }}>{label}.</span>
+                      {opt.replace(/^[A-D]\.\s*/, "")}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Hint Scrolls */}
+        {optionsUnlocked && (
+          <div className="mb-6">
+            <div className="flex gap-3">
+              <button
+                onClick={() => loadHint(1)}
+                disabled={loadingHint}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all hover:opacity-90"
+                style={{
+                  background: current.showHint1 ? "#B68A3A22" : "#1E2E5A",
+                  border: "1px solid #B68A3A44",
+                  color: "#B68A3A",
+                }}
+              >
+                📜 Hint Scroll I {current.showHint1 ? "▾" : ""}
+              </button>
+              {current.hintsUsed >= 1 && (
+                <button
+                  onClick={() => loadHint(2)}
+                  disabled={loadingHint}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all hover:opacity-90"
+                  style={{
+                    background: current.showHint2 ? "#B68A3A22" : "#1E2E5A",
+                    border: "1px solid #B68A3A44",
+                    color: "#B68A3A",
+                  }}
+                >
+                  📜 Hint Scroll II {current.showHint2 ? "▾" : ""}
+                </button>
+              )}
+            </div>
+
+            {/* Hint content */}
+            {current.showHint1 && current.hint1 && (
+              <div
+                className="mt-3 p-4 rounded-xl text-sm leading-relaxed"
+                style={{ background: "#2A1E0F", border: "1px solid #B68A3A", color: "#EADFC8" }}
+              >
+                <p className="font-bold mb-1" style={{ color: "#E7C777" }}>📜 Ancient Scroll I</p>
+                <p style={{ fontStyle: "italic" }}>{current.hint1}</p>
+              </div>
+            )}
+            {current.showHint2 && current.hint2 && (
+              <div
+                className="mt-3 p-4 rounded-xl text-sm leading-relaxed"
+                style={{ background: "#2A1E0F", border: "1px solid #E7C777", color: "#EADFC8" }}
+              >
+                <p className="font-bold mb-1" style={{ color: "#E7C777" }}>📜 Ancient Scroll II</p>
+                <p style={{ fontStyle: "italic" }}>{current.hint2}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Navigation */}
+        <div className="flex items-center justify-between gap-3">
+          <button
+            onClick={() => navigateTo(Math.max(0, currentIdx - 1))}
+            disabled={currentIdx === 0}
+            className="px-5 py-2.5 rounded-xl text-sm transition-all hover:opacity-90 disabled:opacity-30"
+            style={{ background: "#1E2E5A", border: "1px solid #B68A3A44", color: "#EADFC8" }}
+          >
+            ← Previous
+          </button>
+
+          <div className="flex gap-2">
+            {currentIdx < questions.length - 1 ? (
+              <>
+                <button
+                  onClick={() => {
+                    toggleFlag();
+                    navigateTo(currentIdx + 1);
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-sm transition-all hover:opacity-90"
+                  style={{ background: "#1E2E5A", border: "1px solid #B68A3A44", color: "#B68A3A" }}
+                >
+                  Skip ⚑
+                </button>
+                <button
+                  onClick={() => navigateTo(currentIdx + 1)}
+                  className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90"
+                  style={{
+                    background: "linear-gradient(135deg, #B68A3A, #E7C777)",
+                    color: "#0F1C3F",
+                  }}
+                >
+                  Next →
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={submitSession}
+                disabled={submitting}
+                className="px-6 py-2.5 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] disabled:opacity-50"
+                style={{
+                  background: "linear-gradient(135deg, #B68A3A, #E7C777)",
+                  color: "#0F1C3F",
+                  fontFamily: "Georgia, serif",
+                }}
+              >
+                {submitting ? "Submitting…" : `Submit Quest (${answeredCount}/${questions.length} answered)`}
+              </button>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
