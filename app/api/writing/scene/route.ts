@@ -1,16 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chat } from "@/lib/claude";
 import { generateSceneImage } from "@/lib/openai";
+import { prisma } from "@/lib/prisma";
 import {
   buildWritingScenePrompt,
   buildWritingSceneUserPrompt,
 } from "@/lib/prompts/writing";
+import { writeWritingLog } from "@/lib/challengeLog";
 import { randomUUID } from "crypto";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { previousTopics } = body as { previousTopics?: string[] };
+    const { previousTopics, profileId, mode } = body as {
+      previousTopics?: string[];
+      profileId?: number;
+      mode?: string;
+    };
+
+    if (!profileId || !Number.isInteger(Number(profileId))) {
+      return NextResponse.json({ error: "Valid profileId is required" }, { status: 400 });
+    }
+
+    if (mode && mode !== "full_task") {
+      return NextResponse.json(
+        { error: "Scene generation is only available for full_task sessions" },
+        { status: 400 }
+      );
+    }
 
     // Generate scene description via Claude
     const description = await chat(
@@ -29,11 +46,46 @@ export async function POST(request: NextRequest) {
       `Image: ${description.trim()}`
     );
 
+    const session = await prisma.writingSession.create({
+      data: {
+        profileId: Number(profileId),
+        sessionMode: "full_task",
+        promptText: promptCue.trim(),
+        promptCue: promptCue.trim(),
+        imageDescription: description.trim(),
+        imagePath,
+        writingType: "narrative",
+      },
+    });
+
+    // Get profile name for log
+    const profileRecord = await prisma.profile.findUnique({
+      where: { id: Number(profileId) },
+      select: { mageName: true },
+    });
+
+    // Write Phase 1 writing log (fire-and-forget)
+    const sceneSystemPrompt = buildWritingScenePrompt();
+    const sceneUserPrompt = buildWritingSceneUserPrompt(previousTopics);
+    const logPath = writeWritingLog({
+      sessionId: session.id,
+      createdAt: session.createdAt,
+      profileId: Number(profileId),
+      profileName: profileRecord?.mageName || `Profile ${profileId}`,
+      imageDescription: description.trim(),
+      imagePath,
+      promptCue: promptCue.trim(),
+      sceneSystemPrompt,
+      sceneUserPrompt,
+    });
+
     return NextResponse.json({
-      sessionId,
+      sessionId: session.id,
       description: description.trim(),
       imagePath,
       promptCue: promptCue.trim(),
+      writingType: "narrative",
+      logPath,
     });
   } catch (error) {
     console.error("POST /api/writing/scene error:", error);

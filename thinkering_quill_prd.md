@@ -16,6 +16,9 @@ A magical academy where children grow from **Novice Scribe** to **Master of the 
 **Positioning Statement:**
 Thinkering Quill is a story-driven learning adventure that turns reasoning, persistence, and curiosity into magical growth. Children solve meaningful challenges, earn magical artifacts, discover how their skills live in the real world, and shape their identity as a wise mage — while a gentle integrity system reflects the difference between earned knowledge and empty shortcuts.
 
+**Current Product Focus Clarification:**
+Thinkering Quill is currently a **highly targeted WA GATE / ASET preparation app**. The three objective sections — **Quantitative Reasoning, Abstract Reasoning, and Reading Comprehension** — remain strong exam-focused training loops built around repetition, strengthening, progression, and feedback. The **Writing** module is intentionally different: it is being redesigned as a **writing coaching system**, not a one-shot "write a full piece and let AI score it" experience. Its purpose is to build real writing ability through skill drills, scaffolds, revision, and staged composition practice.
+
 **Core Philosophy (产品灵魂):**
 > 考试是为了学习知识，知识是为了解决实际问题。把现实活成游戏。
 > 熟悉 + 惊喜 = 幽默。兴趣是最好的老师。
@@ -110,7 +113,7 @@ Recovery is always possible through honest effort and reflection.
 | 🌲 **Forest of Patterns** | Abstract Reasoning | Pattern sequences, matrices |
 | 🕰️ **Clocktower of Logic** | Quantitative Reasoning | Maths reasoning, data, logic |
 | 🏔️ **Lake of Reflection** | Reading Comprehension | Passages, inference, vocabulary |
-| 🔮 **Workshop of Runes** | Creative Writing (CIIW) | Image prompt → open writing |
+| 🔮 **Workshop of Runes** | Creative Writing (CIIW) | Writing coach: skill drills, guided writing, staged full tasks |
 | 🌑 **Shadow Vault** | Integrity Recovery | Restoration quests |
 | 🗼 **Tower of Ascension** | Grand Tournament | Full ASET mock exam |
 
@@ -404,35 +407,147 @@ All practice sessions pre-generate every question before the student begins. No 
 6. Distinctiveness of voice and tone
 7. Appropriateness, expressiveness, and fluency of language
 
-### App Flow — Image-First Prompt
-1. Claude generates a vivid scene description → DALL-E 3 generates a 1024×1024 image
-2. Image displayed + optional 1-line written cue (matches "image + text" ASET format)
-3. Student writes freely — no genre restriction, no minimum word count
-4. 25-minute countdown timer (matches real ASET)
-5. Autosave every 30 seconds to localStorage + server
-6. Submit → Claude multimodal review (image + student text) streams back feedback scored on all 7 criteria
+### Writing Module Redesign Principles
+Writing in Thinkering Quill is **not** primarily a simulation of an automatic scoring teacher. It is a **coaching system** designed to improve real writing ability.
 
-### CIIW Feedback JSON
-```json
-{
-  "scores": {
-    "prompt_relevance": 4,
-    "ideas": 5,
-    "style_form": 3,
-    "plot_message": 4,
-    "organisation": 4,
-    "voice_tone": 5,
-    "language": 4
-  },
-  "overall": 4,
-  "praise": "Your opening image was vivid and immediately connected to the prompt...",
-  "tip": "Deepen the connection between your character's choice and the visual prompt.",
-  "sparksEarned": 42
-}
-```
+Core principles:
+- Writing training prioritises:
+  - topic selection
+  - idea generation and clarity of intent
+  - structure and organisation
+  - detail expansion
+  - `show, not tell`
+  - revision and improvement
+- AI is used mainly to:
+  - generate scaffolds
+  - provide examples and contrasts
+  - give specific revision prompts
+  - coach the student through rewriting
+- AI is **not** the long-term primary judge of writing quality, and should not be treated as equivalent to official human marking
+- Full ASET-style writing tasks remain important, but they are **stage checks**, not the default daily training unit
 
-### CIIW Reward — Random and Generous
-Writing rewards are a **surprise box** — the reward animation is unpredictable and generous. Could be a rare artifact, a large Sparks windfall, an unexpected title, a legendary familiar. Creative work deserves celebration regardless of score. The surprise is the point.
+### Writing Skill Areas
+The Writing module is organised around trainable sub-skills rather than only full-piece submission.
+
+- **Idea generation** — choosing a workable angle and central idea
+- **Prompt interpretation** — understanding what the prompt invites without writing off-topic
+- **Structure and organisation** — openings, paragraphing, progression, endings
+- **Expression and style** — vivid phrasing, sentence variation, tone
+- **Show, not tell** — using actions, sensory detail, and scene evidence instead of flat explanation
+- **Revision and improvement** — identifying weaknesses and rewriting with purpose
+- **Language control** — fluency, precision, grammar, and sentence clarity
+
+Each skill area can be:
+- trained independently
+- given targeted feedback
+- tracked as gradual progress over time
+
+### Training Model — Writing as Coaching, Not Just Scoring
+The default writing experience is redesigned into three layers:
+
+#### `micro skill drill`
+- 5–8 minutes
+- trains one writing skill at a time
+- examples:
+  - convert `tell` into `show`
+  - improve an opening hook
+  - rewrite a flat sentence with sensory detail
+  - expand a paragraph with stronger evidence or imagery
+  - choose the strongest central idea from several options
+
+#### `guided writing`
+- 10–15 minutes
+- semi-structured writing focused on one part of a full piece
+- examples:
+  - write only the opening
+  - write only the middle conflict / turning point
+  - create a quick outline
+  - improve a weak ending
+  - reorganise a paragraph sequence for clarity
+
+#### `full writing task`
+- used periodically
+- preserves the ASET-style experience
+- can still use image, text, or mixed prompts
+- used to check whether the student can transfer trained skills into a full response
+- not used as the default everyday training format
+
+### New Writing Feedback Contract
+Default feedback should be short, specific, and revision-oriented.
+
+Each writing interaction should aim to produce:
+- `one strength`
+- `one priority issue`
+- `one revision instruction`
+- `optional model example`
+- `optional retry / rewrite step`
+
+Feedback principles:
+- prioritise "what to improve next" over broad summary judgment
+- do not default to showing all 7 ASET scoring dimensions after every task
+- do not let praise become generic or empty
+- keep revision tasks small enough that the student can immediately act on them
+
+### Writing Training Loop
+The core loop for daily writing practice is:
+
+1. Choose a writing skill
+2. View one strong and one weak example
+3. Complete a short writing task
+4. Receive one specific revision prompt
+5. Rewrite immediately
+6. Compare before and after
+7. Update skill progress
+8. Return to a full writing task only after repeated skill practice
+
+This replaces the weaker loop of:
+
+`write once -> receive a score -> stop`
+
+### Image Prompt Role (Retained but Reduced)
+Image prompts remain part of the product because they match ASET-style stimulus variety, but their role is reduced.
+
+- image prompts are primarily used in `full writing task`
+- `micro skill drill` and `guided writing` do **not** require image generation by default
+- the Writing module should not depend on image generation to begin training
+- image + text prompts remain useful for staged assessment, not for every daily lesson
+
+### Data and Tracking Requirements
+Writing data must support progress over drafts and revisions, not just store a single final response.
+
+Minimum data to track:
+- session type
+- target skill
+- prompt
+- outline or planning notes
+- draft v1
+- revision instruction
+- draft v2
+- feedback summary
+- skill progress update
+
+The system should avoid reducing writing history to only:
+- one final composition
+- one feedback JSON blob
+
+### ASET Alignment
+The official 7 ASET dimensions still matter, but they are used differently:
+- they inform the long-term design of skill areas
+- they guide full-task review and checkpoint tasks
+- they do **not** dominate every daily interaction
+
+This keeps the module aligned with the real exam while avoiding the low-yield pattern of "full essay every time, then AI score."
+
+### CIIW Reward Direction
+Writing rewards should celebrate effort, revision, and completion of meaningful training loops — not only final polished output.
+
+This means rewards should be available for:
+- completing a skill drill
+- performing a revision step
+- finishing a guided writing session
+- completing a full task
+
+Full-task writing can still receive larger celebration moments, but daily writing growth should come from coached improvement, not surprise-box scoring alone.
 
 ---
 
@@ -608,7 +723,7 @@ Elegant but child-friendly · Premium storybook · Magical, not gothic horror
 | Styling | **Tailwind CSS** | Custom palette tokens, rapid theming |
 | Animation | **Framer Motion** | Magical transitions, particle effects |
 | Database | **Prisma + SQLite** | No separate server process; local use |
-| AI — reasoning | **Anthropic SDK** + claude-sonnet-4-6 | Question gen, hints, writing feedback, Oracle, real-world stories |
+| AI — reasoning | **Anthropic SDK** + claude-sonnet-4-6 | Question gen, hints, writing coaching, Oracle, real-world stories |
 | AI — images | **OpenAI SDK** + DALL-E 3 | CIIW writing scene generation |
 
 ### Key API Calls
@@ -619,9 +734,11 @@ Elegant but child-friendly · Premium storybook · Magical, not gothic horror
 | AR question | Claude chat() | Structured SVG grid JSON |
 | Reading passage batch | Claude chat() | JSON: {passage, questions[]} |
 | "Spells in the Wild" stories | Claude chat() | 1–2 stories (150–200 words each) |
-| CIIW scene description | Claude chat() | Text description → passed to DALL-E 3 |
+| CIIW skill lesson | Claude chat() | Skill explanation, good/weak examples, short drill prompt |
+| CIIW guided revision | Claude chat()/stream() | One strength + one revision instruction + optional model example |
+| CIIW scene description | Claude chat() | Text description → passed to DALL-E 3 for staged full-task prompts |
 | DALL-E image | OpenAI images.generate() | PNG saved to public/writing-images/ |
-| CIIW feedback | Claude multimodal stream | JSON: 7 scores + praise + tip |
+| CIIW full-task review | Claude multimodal stream | Revision-first feedback for staged full compositions |
 | Oracle explanation | Claude stream() | SSE text → typewriter effect |
 | Hint scrolls | Claude chat() | Cached by questionHash |
 
@@ -634,7 +751,7 @@ Profile              — mage name, colour, rank, XP, attributes, aura, shadow s
 QuizAttempt          — per-question: knowledgePointCode, firstChoiceCorrect, timeSpentMs, changedAnswer
 ExamSession          — tournament sessions with status and scoring
 ExamQuestion         — per-question data within a tournament
-WritingSession       — CIIW: image path, prompt, response, feedback JSON
+WritingSession       — CIIW: session type, target skill, prompt, drafts, revision prompt, feedback summary
 KnowledgeMastery     — per profile × per knowledge point: masteryScore, masteryLevel, firstChoiceCorrect count
 DailyActivity        — streak tracking, daily Sparks
 Badge                — earned badges with tier
@@ -659,7 +776,7 @@ SubjectStat          — cumulative per-region stats
 | Challenge | `/quest/[region]/play` | Pre-generated questions + navigation |
 | Tournament Setup | `/tournament` | Select tests + mode |
 | Live Exam | `/tournament/[id]` | Timer + crystal navigator |
-| Workshop of Runes | `/writing` | DALL-E image + textarea + timer |
+| Workshop of Runes | `/writing` | Writing coach: skill drills, guided writing, staged full tasks |
 | Oracle | `/oracle` | SSE typewriter explanation |
 | Spells in the Wild | (modal post-session) | Real world stories |
 | Field Journal | `/journal` | All collected stories |
@@ -711,6 +828,7 @@ SubjectStat          — cumulative per-region stats
 - Per-question analytics
 - "Spells in the Wild" + Field Journal
 - Reflection prompts
+- Writing coaching loop: skill drill + guided writing + staged full task
 
 ### Phase 3 — Integrity + Recovery
 - Shadow Drift signal tracking
@@ -754,7 +872,9 @@ SubjectStat          — cumulative per-region stats
 - Post-recovery accuracy improvement
 
 ### Delight
-- CIIW submission rate (did they actually write?)
+- CIIW skill drill completion rate
+- CIIW revision completion rate
+- CIIW full-task submission rate
 - "Spot the spell" answer rate in Field Journal
 - Artifact collection rate
 

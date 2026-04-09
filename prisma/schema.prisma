@@ -100,10 +100,18 @@ model WritingSession {
   id               Int      @id @default(autoincrement())
   profileId        Int
   profile          Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  imageDescription String
+  sessionMode      String   @default("full_task") // micro_skill_drill | guided_writing | full_task
+  targetSkill      String?
+  promptText       String?
+  outlineNotes     String?
+  draftV1          String?
+  revisionInstruction String?
+  draftV2          String?
+  feedbackSummaryJson String?
+  imageDescription String?
   imagePath        String?  // local path: public/writing-images/<id>.png
-  writingType      String   // narrative | descriptive | persuasive
-  promptCue        String
+  writingType      String   @default("narrative") // narrative | descriptive | persuasive
+  promptCue        String?
   userResponse     String?
   feedbackJson     String?  // {scores, praise, tip, sparksEarned}
   sparksEarned     Int      @default(0)

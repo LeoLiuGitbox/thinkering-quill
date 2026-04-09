@@ -10,7 +10,7 @@ interface Question {
   questionText: string;
   context?: string;
   passageTitle?: string;
-  options?: string[];
+  options?: (string | Record<string, unknown>)[];
   correct: string;
   explanation: string;
   knowledgePointCode: string;
@@ -70,12 +70,13 @@ export default function QuestPlayPage() {
     rankUp?: string;
   } | null>(null);
   const [optionsUnlocked, setOptionsUnlocked] = useState(false);
-  const [loadingHint, setLoadingHint] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState("Preparing your challenges…");
   const [showExplanation, setShowExplanation] = useState(false);
   const [reflectionText, setReflectionText] = useState("");
   const [showReflection, setShowReflection] = useState(false);
 
   const unlockTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const logPathRef = useRef<string>("");
 
   useEffect(() => {
     const profileId = localStorage.getItem("activeProfileId");
@@ -94,7 +95,8 @@ export default function QuestPlayPage() {
       const profileData = await profileRes.json();
       setProfile(profileData.profile);
 
-      // Generate questions
+      // Phase 1: Generate questions
+      setLoadingStatus("Summoning your challenges…");
       const res = await fetch("/api/quest/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -104,9 +106,11 @@ export default function QuestPlayPage() {
 
       const isAR = region === "Forest of Patterns";
       const rawQs: Question[] = data.questions || [];
+      const genSystemPrompt: string = data.systemPrompt || "";
+      const genUserPrompt: string = data.userPrompt || "";
 
       const states: QuestionState[] = rawQs.map((q: Question) => {
-        const opts = q.options || [];
+        const opts = (q.options || []) as string[];
         return {
           question: q,
           questionHash: hashQ(q.questionText, opts),
@@ -117,12 +121,93 @@ export default function QuestPlayPage() {
         };
       });
 
-      setQuestions(states);
+      // Phase 2: Pre-generate all hints in parallel
+      setLoadingStatus(`Inscribing hint scrolls… (0 / ${rawQs.length * 2})`);
+      let hintsReady = 0;
+      const totalHints = rawQs.length * 2;
+
+      const hintResults: { hint1: string; hint2: string }[] = await Promise.all(
+        rawQs.map(async (q, idx) => {
+          const body = {
+            questionText: q.questionText,
+            options: q.options || [],
+            knowledgePointName: q.knowledgePointCode,
+            isAbstractReasoning: isAR,
+            wrongOption: (q.options as string[])?.[3] || "",
+          };
+
+          const [r1, r2] = await Promise.all([
+            fetch("/api/hint", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ...body, hintLevel: 1 }),
+            }).then(r => r.json()).then(d => {
+              hintsReady++;
+              setLoadingStatus(`Inscribing hint scrolls… (${hintsReady} / ${totalHints})`);
+              return d.hint as string;
+            }).catch(() => ""),
+
+            fetch("/api/hint", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ...body, hintLevel: 2 }),
+            }).then(r => r.json()).then(d => {
+              hintsReady++;
+              setLoadingStatus(`Inscribing hint scrolls… (${hintsReady} / ${totalHints})`);
+              return d.hint as string;
+            }).catch(() => ""),
+          ]);
+
+          return { hint1: r1, hint2: r2 };
+        })
+      );
+
+      // Merge hints into question states
+      const statesWithHints = states.map((s, i) => ({
+        ...s,
+        hint1: hintResults[i]?.hint1 || "",
+        hint2: hintResults[i]?.hint2 || "",
+      }));
+
+      // Phase 3: Write challenge log in background (fire-and-forget)
+      const profileName = profileData.profile?.mageName || `Profile ${profileId}`;
+      const logQuestions = statesWithHints.map((s, i) => ({
+        idx: i,
+        knowledgePointCode: s.question.knowledgePointCode,
+        questionText: s.question.questionText,
+        context: s.question.context,
+        options: s.question.options as string[] | undefined,
+        options_ar: s.question.options_ar,
+        gridData: s.question.gridData,
+        type: s.question.type,
+        correct: s.question.correct,
+        explanation: s.question.explanation,
+        hint1: s.hint1 || "",
+        hint2: s.hint2 || "",
+      }));
+
+      fetch("/api/quest/log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profileId: parseInt(profileId),
+          profileName,
+          subject: data.subject,
+          difficulty: questParams.difficulty,
+          systemPrompt: genSystemPrompt,
+          userPrompt: genUserPrompt,
+          questions: logQuestions,
+        }),
+      }).then(r => r.json()).then(d => {
+        if (d.logPath) logPathRef.current = d.logPath;
+      }).catch(err => console.error("Failed to write quest log:", err));
+
+      setQuestions(statesWithHints);
       setGenerating(false);
       setLoading(false);
 
       // Start read timer for first question
-      startReadTimer(0, states);
+      startReadTimer(0, statesWithHints);
     } catch (err) {
       console.error("Failed to generate questions:", err);
       setLoading(false);
@@ -142,7 +227,7 @@ export default function QuestPlayPage() {
     if (qs) setQuestions(updated);
     else setQuestions(updated);
 
-    const minTime = q.question.estimatedReadTimeMs || 4000;
+    const minTime = Math.min(q.question.estimatedReadTimeMs || 4000, 5000);
     clearTimeout(unlockTimerRef.current);
     unlockTimerRef.current = setTimeout(() => setOptionsUnlocked(true), minTime);
   }
@@ -187,48 +272,23 @@ export default function QuestPlayPage() {
     setQuestions(updated);
   }
 
-  async function loadHint(level: 1 | 2) {
-    const q = questions[currentIdx];
-    if (loadingHint) return;
-    if (level === 1 && q.hint1) { const u = [...questions]; u[currentIdx] = { ...u[currentIdx], showHint1: true }; setQuestions(u); return; }
-    if (level === 2 && q.hint2) { const u = [...questions]; u[currentIdx] = { ...u[currentIdx], showHint2: true }; setQuestions(u); return; }
-
-    setLoadingHint(true);
-    const isAR = region === "Forest of Patterns";
-    try {
-      const res = await fetch("/api/hint", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          hintLevel: level,
-          questionText: q.question.questionText,
-          options: q.question.options || [],
-          knowledgePointName: q.question.knowledgePointCode,
-          isAbstractReasoning: isAR,
-          wrongOption: q.question.options?.[3] || "",
-        }),
-      });
-      const data = await res.json();
-      const updated = [...questions];
-      if (level === 1) {
-        updated[currentIdx] = {
-          ...updated[currentIdx],
-          hint1: data.hint,
-          showHint1: true,
-          hintsUsed: updated[currentIdx].hintsUsed + 1,
-        };
-      } else {
-        updated[currentIdx] = {
-          ...updated[currentIdx],
-          hint2: data.hint,
-          showHint2: true,
-          hintsUsed: updated[currentIdx].hintsUsed + 1,
-        };
-      }
-      setQuestions(updated);
-    } finally {
-      setLoadingHint(false);
+  function loadHint(level: 1 | 2) {
+    const updated = [...questions];
+    const q = updated[currentIdx];
+    if (level === 1) {
+      updated[currentIdx] = {
+        ...q,
+        showHint1: true,
+        hintsUsed: q.showHint1 ? q.hintsUsed : q.hintsUsed + 1,
+      };
+    } else {
+      updated[currentIdx] = {
+        ...q,
+        showHint2: true,
+        hintsUsed: q.showHint2 ? q.hintsUsed : q.hintsUsed + 1,
+      };
     }
+    setQuestions(updated);
   }
 
   async function submitSession() {
@@ -305,6 +365,31 @@ export default function QuestPlayPage() {
         }),
       });
     }
+
+    // Finalize challenge log in background
+    if (logPathRef.current) {
+      const answers = questions.map((s, i) => ({
+        idx: i,
+        knowledgePointCode: s.question.knowledgePointCode,
+        userAnswer: s.userAnswer || "",
+        correct: s.question.correct,
+        isCorrect: s.userAnswer === s.question.correct,
+        hintsUsed: s.hintsUsed,
+        timeSpentMs: s.timeSpentMs,
+      }));
+      fetch("/api/quest/log/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          logPath: logPathRef.current,
+          answers,
+          totalSparks: sessionResults?.totalSparks || 0,
+          correctCount: sessionResults?.correctCount || 0,
+          reflection: reflectionText.trim(),
+        }),
+      }).catch(err => console.error("Failed to finalize quest log:", err));
+    }
+
     setShowReflection(false);
     setSessionComplete(true);
   }
@@ -315,16 +400,39 @@ export default function QuestPlayPage() {
   const allViewed = currentIdx === questions.length - 1 || answeredCount === questions.length;
 
   if (generating) {
+    const isHintPhase = loadingStatus.startsWith("Inscribing");
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: "#0F1C3F" }}>
+      <div className="min-h-screen flex flex-col" style={{ background: "#0F1C3F" }}>
         <GameNav profile={profile} />
-        <div className="text-center mt-20">
-          <div className="text-7xl mb-6 animate-pulse">📜</div>
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
+          <div className="text-7xl mb-6" style={{ animation: "spin 3s linear infinite", display: "inline-block" }}>
+            {isHintPhase ? "📜" : "⚗️"}
+          </div>
           <h2 className="text-2xl font-bold mb-3" style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}>
-            Preparing your challenges…
+            {loadingStatus}
           </h2>
-          <p style={{ color: "#B68A3A" }}>The Archive prepares questions tailored to your mastery</p>
+          <p style={{ color: "#B68A3A" }}>
+            {isHintPhase
+              ? "Your hint scrolls will be ready before the first question appears"
+              : "The Archive prepares questions tailored to your mastery"}
+          </p>
+          {/* Progress bar */}
+          <div className="mt-8 w-64 h-1 rounded-full overflow-hidden" style={{ background: "#1E2E5A" }}>
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                background: "#E7C777",
+                width: isHintPhase
+                  ? (() => {
+                      const m = loadingStatus.match(/(\d+)\s*\/\s*(\d+)/);
+                      return m ? `${Math.round((parseInt(m[1]) / parseInt(m[2])) * 100)}%` : "10%";
+                    })()
+                  : "30%",
+              }}
+            />
+          </div>
         </div>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -615,7 +723,7 @@ export default function QuestPlayPage() {
                       }}
                     >
                       <span className="font-bold mr-2" style={{ color: "#B68A3A" }}>{label}.</span>
-                      {opt.replace(/^[A-D]\.\s*/, "")}
+                      {typeof opt === "string" ? opt.replace(/^[A-D]\.\s*/, "") : JSON.stringify(opt)}
                     </button>
                   );
                 })
@@ -630,7 +738,7 @@ export default function QuestPlayPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => loadHint(1)}
-                disabled={loadingHint}
+                disabled={false}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all hover:opacity-90"
                 style={{
                   background: current.showHint1 ? "#B68A3A22" : "#1E2E5A",
@@ -643,7 +751,7 @@ export default function QuestPlayPage() {
               {current.hintsUsed >= 1 && (
                 <button
                   onClick={() => loadHint(2)}
-                  disabled={loadingHint}
+                  disabled={false}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all hover:opacity-90"
                   style={{
                     background: current.showHint2 ? "#B68A3A22" : "#1E2E5A",

@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
         familiarTopics: familiar,
         challengeTopics: challenge,
         totalCount: sessionLength,
+        difficulty,
       });
     } else {
       // RC
@@ -87,6 +88,21 @@ export async function POST(request: NextRequest) {
 
     const raw = await chat(systemPrompt, userPrompt, 8192);
     questions = parseJSON<unknown[]>(raw);
+
+    // For AR, move `options` (cell objects) → `options_ar` so the client
+    // can distinguish between visual AR options and text MCQ options
+    if (subject === "AR") {
+      questions = questions.map((q) => {
+        const question = q as Record<string, unknown>;
+        if (Array.isArray(question.options) && question.options.length > 0) {
+          // If options are objects (cell data), rename to options_ar
+          if (typeof question.options[0] === "object" && question.options[0] !== null) {
+            return { ...question, options_ar: question.options, options: undefined };
+          }
+        }
+        return question;
+      });
+    }
 
     // For RC, flatten passages → questions
     if (subject === "RC") {
@@ -116,6 +132,8 @@ export async function POST(request: NextRequest) {
       subject,
       sessionLength,
       difficulty,
+      systemPrompt,
+      userPrompt,
     });
   } catch (error) {
     console.error("POST /api/quest/generate error:", error);

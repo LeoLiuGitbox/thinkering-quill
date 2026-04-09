@@ -153,9 +153,17 @@ export function calculateMCQSparks(params: {
   return base;
 }
 
-/** Calculate writing sparks from score (1–5 per criterion, 7 criteria) */
-export function calculateWritingSparks(scores: number[]): number {
-  if (scores.length === 0) return 0;
-  const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-  return Math.round((avg / 5) * SPARKS.WRITING_MAX);
+export function calculateWritingDrillSparks(): number {
+  return 12;
+}
+
+export function calculateWritingRevisionSparks(): number {
+  return 8;
+}
+
+export function calculateWritingFullTaskSparks(wordCount: number): number {
+  if (wordCount < 80) return 18;
+  if (wordCount < 140) return 28;
+  if (wordCount < 200) return 38;
+  return SPARKS.WRITING_MAX;
 }

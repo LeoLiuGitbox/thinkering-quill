@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Thinkering Quill
 
-## Getting Started
+Thinkering Quill is a focused **WA GATE / ASET prep app** for primary-aged learners.
 
-First, run the development server:
+The current product direction is intentionally split in two:
+
+- **Objective sections** stay exam-focused and keep the existing drill / upgrade / feedback loop
+- **Writing** is being repositioned as a **writing coaching system**, not a one-shot "write a full piece and let AI score it" tool
+
+## Product Shape
+
+The app currently targets four WA GATE / ASET-aligned areas:
+
+- **Quantitative Reasoning**
+- **Abstract Reasoning**
+- **Reading Comprehension**
+- **Writing**
+
+The first three remain strongly targeted practice modes.
+
+Writing now follows a different training model:
+
+- `micro_skill_drill`
+- `guided_writing`
+- `full_task`
+
+That means the writing module is intended to help learners improve:
+
+- prompt interpretation
+- idea selection
+- structure
+- detail and specificity
+- `show, not tell`
+- revision
+
+Image prompts may still exist, but only as support for staged `full_task` sessions rather than as the default writing entry point.
+
+## Current Direction
+
+This repository is evolving away from a broad "magical learning world" pitch and toward a more honest definition:
+
+- a **highly targeted prep app** for the three objective sections
+- a **coaching-oriented writing system** for Writing
+
+AI is expected to help with:
+
+- scaffolding
+- examples
+- revision prompts
+- feedback wording
+
+AI is **not** treated as the default authoritative writing scorer.
+
+## Docs
+
+Core product and system documents:
+
+- [PRD](./thinkering_quill_prd.md)
+- [System Design](./DESIGN.md)
+
+K12 database work is currently kept as a separate data-layer track:
+
+- [K12 schema init SQL](./db/k12_learning_engine_init.sql)
+- [K12 API examples](./docs/k12_learning_engine_api_examples.md)
+
+## Development
+
+Start the local development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Notes
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- The current codebase still contains older assumptions in places; PRD and DESIGN now reflect the updated Writing direction.
+- K12 knowledge-structure integration is being treated as a separate architecture/data track and is not yet the default application backbone.

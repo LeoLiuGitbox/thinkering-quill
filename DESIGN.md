@@ -14,7 +14,7 @@ The WA GATE test has 4 components — the app covers all of them:
 | **Abstract Reasoning** | MCQ — pattern sequences, matrices, spatial reasoning described in text + Unicode symbols | Claude generates text-based pattern problems (e.g. shape series, odd-one-out) |
 | **Quantitative Reasoning** | MCQ — word problems, number patterns, logical maths, no calculator | Core maths reasoning, not rote arithmetic |
 | **Reading Comprehension** | MCQ — short passage (150–250 words) + 4–5 questions | Inference, vocabulary, main idea |
-| **Creative Writing** | Open text — kid types response to an AI-generated image prompt, Claude reviews | DALL-E 3 generates a scene image → kid writes a story inspired by it → Claude gives scored feedback |
+| **Creative Writing** | Coached writing practice — skill drills, guided writing, and staged full tasks | Writing focuses on prompt interpretation, idea development, structure, expression, revision, and `show, not tell`; image prompts are reserved for full tasks only |
 
 ---
 
@@ -56,7 +56,7 @@ The WA GATE test has 4 components — the app covers all of them:
 │   ├── claude_client.py     # Thin wrapper: chat() and stream() helpers
 │   ├── quiz.py              # generate_question(), save_attempt(), get_weak_topics()
 │   ├── exam.py              # create_session(), generate_batch(), submit_answer(), finalise()
-│   ├── writing.py           # generate_prompt(), evaluate_writing() — creative writing module
+│   ├── writing.py           # build_skill_lesson(), coach_revision(), review_full_task() — writing coaching module
 │   ├── explain.py           # explain_topic() with SSE streaming
 │   ├── progress.py          # Dashboard data, streaks, XP, badge evaluation
 │   └── hints.py             # get_hint() with session caching, hint cost logic
@@ -74,7 +74,7 @@ The WA GATE test has 4 components — the app covers all of them:
 │   ├── home.html            # Wizard home: daily streak, spell categories, XP level
 │   ├── quiz/                # subject_select.html, question.html, results.html
 │   ├── exam/                # start.html, in_progress.html, review.html
-│   ├── writing/             # prompt.html, editor.html, feedback.html
+│   ├── writing/             # mode_select.html, lesson.html, editor.html, feedback.html
 │   ├── explain/             # ask.html (typewriter SSE output)
 │   ├── progress/            # dashboard.html (charts, spell-book of badges)
 │   └── parent/              # overview.html, profile_detail.html
@@ -84,7 +84,7 @@ The WA GATE test has 4 components — the app covers all of them:
     │   ├── timer.js         # Countdown, colour change at 5m/2m
     │   ├── quiz.js          # Hint reveal, XP pop animation
     │   ├── exam.js          # Auto-submit, answer AJAX, question navigator
-    │   ├── writing.js       # Word count, autosave to session, submit + stream feedback
+    │   ├── writing.js       # Mode flow, draft autosave, revision loop, submit + stream coaching feedback
     │   ├── charts.js        # Canvas 2D bar/line/radar charts (no library)
     │   └── rewards.js       # Magic sparkle confetti, spell-unlock modal
     └── img/                 # wizard.svg, spellbook.svg, potion.svg, badge icons
@@ -102,7 +102,7 @@ profiles          -- id, name, avatar_colour, created_at, current_xp, current_le
 quiz_attempts     -- profile_id, subject, topic, correct, hints_used, xp_earned, attempted_at
 exam_sessions     -- profile_id, subject, duration, score, max_score, percentage, status
 exam_questions    -- session_id, question_index, text, options_json, correct, user_answer, explanation
-writing_sessions  -- profile_id, prompt_text, user_response, ai_feedback_json, xp_earned, created_at
+writing_sessions  -- profile_id, session_type, target_skill, prompt_text, outline_notes, draft_v1, revision_instruction, draft_v2, feedback_summary_json, xp_earned, created_at
 daily_activity    -- profile_id, activity_date (UNIQUE per profile), quiz_count, exam_count, xp_earned
 
 -- Progress & rewards (all include profile_id)
@@ -120,21 +120,24 @@ All tables use `profile_id` so progress is completely isolated between child pro
 |---|---|---|
 | Practice question (MCQ) | Each "New Question" click | Single call → JSON: question/options/answer/explanation/topic |
 | Exam batch | Exam start | One call → JSON array of N questions (pre-loaded before timer starts) |
-| Writing image description | "Get a new scene" click | Claude chat() → vivid scene description text → passed to DALL-E 3 |
-| DALL-E 3 image generation | After Claude description | `openai.images.generate(model="dall-e-3")` → URL → saved as PNG locally |
-| Writing feedback | Kid submits writing | Streaming SSE multimodal call (image + text) → structured feedback: Ideas/Structure/Language ✦✦✦✦✦ + praise + tip |
+| Writing skill lesson | Kid starts a `skill_drill` session | Claude chat() → structured mini-lesson with goal, rule, strong/weak examples, and a short exercise |
+| Writing revision coaching | Kid submits a short drill or guided draft | Streaming SSE text call → one strength, one priority issue, one revision instruction, optional model example |
+| Writing full-task scene | Kid starts a `full_task` session | Claude chat() → scene description; optional DALL-E image generation only for full writing tasks |
+| DALL-E 3 image generation | After full-task scene description | `openai.images.generate(model="dall-e-3")` → URL → saved as PNG locally for staged full tasks only |
+| Writing full-task review | Kid submits a complete composition | Streaming SSE multimodal call (image + text when present) → coaching-style response with strengths, top issue, and revision direction |
 | Topic explainer | Kid submits a question | Streaming SSE → typewriter effect, Year 5 language, ends with "Did you know?" |
 | Hints | "Need a hint?" click | Single call, cached in Flask session by question_hash, 2 levels |
 
 **Abstract Reasoning** questions are text-based: Claude generates sequences using Unicode symbols (●, ■, ▲, ★) and describes spatial patterns in words. This works well for 10-year-olds without needing image generation.
 
-**Creative Writing feedback** JSON structure:
+**Writing coaching feedback** JSON structure:
 ```json
 {
-  "scores": {"ideas": 4, "structure": 3, "language": 5},
-  "praise": "Your opening sentence was magical — it pulled me straight in!",
-  "tip": "Try adding one more detail about how your character felt inside.",
-  "xp_earned": 35
+  "strength": "Your opening creates immediate curiosity and gives the scene a clear mood.",
+  "priority_issue": "The middle jumps too quickly from discovery to ending, so the tension fades.",
+  "revision_instruction": "Add 2-3 sentences showing what the character notices, decides, and risks before the final event.",
+  "model_example": "Instead of 'He was scared', try showing it through action or dialogue.",
+  "next_step": "Rewrite the middle paragraph before moving to the ending."
 }
 ```
 
@@ -176,33 +179,138 @@ Kid picks **5, 10, or 15 questions** at the start of each practice session from 
 
 ### Creative Writing ("Storytelling Cauldron")
 
-**Image-first prompt flow** — a DALL-E 3 generated image IS the prompt:
+Writing should behave like a **coaching system**, not a one-shot scoring machine. The three objective units can keep the current drill-and-upgrade loop, but Writing uses a separate training model built around skill growth and revision.
 
-1. Kid clicks "Get a new scene" → Claude generates a short vivid image description tuned for Year 5 creative writing (e.g. *"A lone wizard standing at the edge of a glowing forest at dusk, a mysterious door in an ancient tree"*)
-2. That description is sent to **DALL-E 3** → 1024×1024 image generated and displayed prominently
-3. A short cue appears under the image (*"Write a story about what happens next…"*) — type (narrative / descriptive / persuasive) chosen by Claude to match WA GATE variety
-4. Kid types response in textarea with live word count (target 150–250 words)
-5. Autosaved to Flask session every 30 seconds
-6. Submit → Claude reviews writing **with the image as context** (multimodal call), streams back:
-   - **Ideas & Imagination** ✦✦✦✦✦
-   - **Structure** ✦✦✦✦✦
-   - **Language & Word Choice** ✦✦✦✦✦
-   - Specific praise + one concrete improvement tip
-7. XP awarded based on average score (max 50 MP per session)
+#### Writing Module Redesign Principles
 
-**API call sequence:**
+- The goal is to improve writing ability, not simulate an opaque automatic marker
+- Daily training prioritises:
+  - prompt interpretation
+  - idea selection and angle
+  - structure and paragraph flow
+  - detail and specificity
+  - `show, not tell`
+  - revision and rewriting
+- Claude acts as a coach:
+  - generates scaffolds
+  - provides strong/weak examples
+  - gives one concrete revision instruction
+  - guides the student into a second attempt
+- Claude does not act as:
+  - the default total-score judge
+  - a substitute for formal human assessment
+  - the sole source of writing growth decisions
+
+#### Writing Skill Areas
+
+- `idea_generation`
+- `prompt_interpretation`
+- `structure_and_organisation`
+- `expression_and_style`
+- `show_not_tell`
+- `revision_and_improvement`
+- `language_control`
+
+Each area should support:
+- standalone drills
+- targeted feedback
+- lightweight progress tracking over time
+
+#### Three Writing Modes
+
+**1. `micro_skill_drill`**
+
+- Default daily mode, 5-8 minutes
+- Trains one narrow skill at a time
+- Example tasks:
+  - rewrite a telling sentence into a showing sentence
+  - choose the stronger story angle from two options
+  - improve a weak opening hook
+  - add sensory detail to a flat paragraph
+  - vary sentence openings
+
+**2. `guided_writing`**
+
+- Mid-length coached session, 10-15 minutes
+- Student writes part of a composition, not necessarily a full piece
+- Example tasks:
+  - write only the opening
+  - plan the middle conflict
+  - turn notes into a paragraph
+  - improve an ending
+  - build an outline from a cue
+
+**3. `full_task`**
+
+- Stage-check mode, not the default daily loop
+- Preserves ASET-style full composition practice
+- Used to test transfer after skill work has been done
+
+#### Writing Training Loop
+
+1. Choose a target skill
+2. Show a concise mini-lesson with one strong and one weak example
+3. Give a short writing task
+4. Return one strength and one priority issue
+5. Give one specific revision instruction
+6. Ask the student to rewrite immediately
+7. Compare draft v1 and draft v2
+8. Update lightweight skill progress
+9. Periodically route the student into a `full_task`
+
+This loop replaces the old "write once -> receive a score -> stop" pattern.
+
+#### Feedback Contract
+
+Writing feedback should default to:
+- one strength
+- one priority issue
+- one revision instruction
+- optional model example
+- optional retry / rewrite step
+
+The UI should not lead with rubric scores. Any rubric-style scoring belongs to staged `full_task` review only, and even there it should remain secondary to revision guidance.
+
+#### Image Prompts: Retained but Downgraded
+
+- Image prompts remain available for `full_task`
+- They are not the default entry point for all writing sessions
+- `micro_skill_drill` and `guided_writing` should work without image generation
+- When used, the image is a support for idea generation, not the main value of the module
+
+#### API Call Sequences
+
+**`micro_skill_drill`**
 ```
-1. Claude chat()          → image description text
-2. DALL-E 3 generate()    → image URL → immediately saved to static/writing_images/<session_id>.png
-3. Display image + textarea
-4. On submit: Claude chat([image, student_text]) → streaming feedback JSON
+1. Claude chat()       → mini-lesson JSON (goal, rule, examples, short task)
+2. Display lesson + short response input
+3. On submit: Claude chat(student_text) → streaming coaching JSON
+4. Student rewrites
+5. Save draft_v1, revision_instruction, draft_v2, feedback_summary_json
+```
+
+**`guided_writing`**
+```
+1. Claude chat()       → guided prompt + scaffold or outline frame
+2. Display writing frame + textarea
+3. On submit: Claude chat(student_text) → streaming coaching JSON
+4. Student revises selected section
+5. Save outline_notes, draft_v1, draft_v2, feedback_summary_json
+```
+
+**`full_task`**
+```
+1. Claude chat()          → full-task prompt or optional scene description
+2. Optional DALL-E 3      → image URL → saved to static/writing_images/<session_id>.png
+3. Display full task + textarea
+4. On submit: Claude chat([image, student_text]) → streaming coaching review JSON
 ```
 
 **Additions to tech stack:**
-- New dependency: `openai` pip package + `OPENAI_API_KEY` in `.env`
-- New module: `modules/image_gen.py` — wraps `openai.OpenAI().images.generate(model="dall-e-3")`
-- New folder: `static/writing_images/` — stores downloaded PNGs (DALL-E URLs expire in 1 hour)
-- `writing_sessions` table stores: `image_url` (local path), `image_description`, `user_response`, `ai_feedback_json`
+- Keep `openai` pip package + `OPENAI_API_KEY` in `.env` only for staged `full_task` image generation
+- Keep `modules/image_gen.py` limited to optional `full_task` scenes
+- Keep `static/writing_images/` for locally saved generated PNGs when image prompts are used
+- `writing_sessions` should store: `session_type`, `target_skill`, `prompt_text`, `outline_notes`, `draft_v1`, `revision_instruction`, `draft_v2`, `feedback_summary_json`
 
 ### Hints ("Ancient Scroll")
 - 2 scrolls per question: scroll 1 = guiding question, scroll 2 = eliminate one wrong option + strategy
@@ -223,7 +331,7 @@ Kid picks **5, 10, or 15 questions** at the start of each practice session from 
   - **Number Sorcerer** — Quantitative Reasoning mastery
   - **Pattern Prophet** — Abstract Reasoning mastery
   - **Word Weaver** — Reading Comprehension mastery
-  - **Story Enchanter** — Creative Writing mastery
+  - **Story Enchanter** — Writing coaching milestones and revision persistence
   - **Speed Caster** — questions answered in <45s
   - **Perfect Potion** — 100% quiz score
   - **Tournament Victor** — exam scores
@@ -270,7 +378,7 @@ python app.py   # auto-opens browser at http://127.0.0.1:5000
 6. `templates/base.html` + `static/css/style.css` — wizard palette, XP bar in nav
 7. `modules/quiz.py` + `routes/quiz_routes.py` + `static/js/quiz.js`
 8. `modules/exam.py` + `routes/exam_routes.py` + `static/js/exam.js`
-9. `modules/writing.py` + `routes/writing_routes.py` + `static/js/writing.js`
+9. `modules/writing.py` + `routes/writing_routes.py` + `static/js/writing.js` — implement coaching modes before full-task review polish
 10. `modules/explain.py` + SSE route in `explain_routes.py`
 11. `modules/hints.py` + `static/js/rewards.js` (XP/level-up/badges)
 12. `modules/progress.py` + `static/js/charts.js` + `templates/progress/dashboard.html`
@@ -285,7 +393,7 @@ python app.py   # auto-opens browser at http://127.0.0.1:5000
 3. Choose "Abstract Reasoning" → pick 5 questions → complete quiz → XP animation + star rating shown
 4. Tap "Ancient Scroll" hint on a question → parchment slide-in appears; tap again → scroll 2 appears
 5. Start a 20-minute Grand Tournament → cauldron loading screen → timer counts down → submit → review with green/red answers
-6. Visit "Storytelling Cauldron" → click "Get a new scene" → DALL-E 3 image appears → type 150+ words → submit → streaming AI feedback with ✦ scores and image-aware praise
+6. Visit "Storytelling Cauldron" → choose `micro_skill_drill` or `guided_writing` → complete draft v1 → receive one strength + one revision instruction → submit draft v2 → full-task image flow remains available only in staged mode
 7. Visit "Ask the Oracle" → type a topic question → text streams in typewriter style
 8. Check "Wizard's Tome" → bar/line/radar charts render, badge shelf shows earned spells
 9. Level up by earning XP → full-page sparkle burst + new wizard title displayed
