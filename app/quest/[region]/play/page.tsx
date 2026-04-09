@@ -396,7 +396,29 @@ export default function QuestPlayPage() {
 
   const current = questions[currentIdx];
   const isAR = region === "Forest of Patterns";
+  const isRC = region === "Reading Comprehension";
   const answeredCount = questions.filter((q) => q.userAnswer).length;
+
+  function restartSession() {
+    setQuestions([]);
+    setCurrentIdx(0);
+    setLoading(true);
+    setGenerating(true);
+    setSubmitting(false);
+    setSessionComplete(false);
+    setSessionResults(null);
+    setOptionsUnlocked(false);
+    setLoadingStatus("Preparing your challenges…");
+    setShowExplanation(false);
+    setReflectionText("");
+    setShowReflection(false);
+    logPathRef.current = "";
+    if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current);
+    const profileId = localStorage.getItem("activeProfileId");
+    const paramsStr = sessionStorage.getItem("questParams");
+    if (!profileId || !paramsStr) { router.push(`/quest/${encodeURIComponent(region)}`); return; }
+    loadProfileAndGenerate(profileId, JSON.parse(paramsStr));
+  }
   const allViewed = currentIdx === questions.length - 1 || answeredCount === questions.length;
 
   if (generating) {
@@ -502,15 +524,7 @@ export default function QuestPlayPage() {
               Archive Hall
             </Link>
             <button
-              onClick={() => {
-                sessionStorage.setItem("questParams", JSON.stringify({
-                  profileId: profile.id,
-                  region,
-                  sessionLength: questions.length,
-                  difficulty: questions[0]?.question.difficulty || "Journeyman",
-                }));
-                router.push(`/quest/${encodeURIComponent(region)}/play`);
-              }}
+              onClick={restartSession}
               className="flex-1 py-3 rounded-xl font-bold transition-all hover:scale-[1.02]"
               style={{
                 background: "linear-gradient(135deg, #B68A3A, #E7C777)",
@@ -635,102 +649,175 @@ export default function QuestPlayPage() {
           ))}
         </div>
 
-        {/* Context / Passage */}
-        {current.question.context && (
-          <div
-            className="p-5 rounded-xl mb-6 text-sm leading-relaxed"
-            style={{ background: "#1A2545", border: "1px solid #B68A3A33", color: "#EADFC8" }}
-          >
-            {current.question.passageTitle && (
-              <p className="font-bold mb-2" style={{ color: "#E7C777" }}>
-                {current.question.passageTitle}
-              </p>
-            )}
-            <p style={{ whiteSpace: "pre-wrap" }}>{current.question.context}</p>
+        {/* RC Split Layout: passage left, question+options right */}
+        {isRC && current.question.context ? (
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
+            {/* Left: Passage */}
+            <div
+              className="md:w-3/5 p-5 rounded-xl text-sm leading-relaxed overflow-y-auto"
+              style={{
+                background: "#1A2545",
+                border: "1px solid #B68A3A33",
+                color: "#EADFC8",
+                maxHeight: "70vh",
+              }}
+            >
+              {current.question.passageTitle && (
+                <p className="font-bold mb-2" style={{ color: "#E7C777" }}>
+                  {current.question.passageTitle}
+                </p>
+              )}
+              <p style={{ whiteSpace: "pre-wrap" }}>{current.question.context}</p>
+            </div>
+
+            {/* Right: Question + Options */}
+            <div className="md:w-2/5 flex flex-col gap-3">
+              <div
+                className="p-5 rounded-2xl"
+                style={{ background: "#1E2E5A", border: "1px solid #B68A3A44" }}
+              >
+                <p
+                  className="text-base leading-relaxed mb-4"
+                  style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}
+                >
+                  {current.question.questionText}
+                </p>
+
+                {!optionsUnlocked && (
+                  <div className="text-center py-4">
+                    <p className="text-sm animate-pulse" style={{ color: "#B68A3A" }}>
+                      📖 Reading the question…
+                    </p>
+                  </div>
+                )}
+
+                {optionsUnlocked && (
+                  <div className="space-y-2">
+                    {(current.question.options || []).map((opt, i: number) => {
+                      const label = getOptionLabel(i);
+                      const isSelected = current.userAnswer === label;
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => selectAnswer(label)}
+                          className="w-full text-left px-3 py-2 rounded-xl transition-all hover:opacity-90 text-sm"
+                          style={{
+                            background: isSelected ? "#B68A3A22" : "#0F1C3F",
+                            border: `2px solid ${isSelected ? "#E7C777" : "#B68A3A44"}`,
+                            color: "#EADFC8",
+                            fontFamily: "Georgia, serif",
+                          }}
+                        >
+                          <span className="font-bold mr-2" style={{ color: "#B68A3A" }}>{label}.</span>
+                          {typeof opt === "string" ? opt.replace(/^[A-D]\.\s*/, "") : JSON.stringify(opt)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        )}
+        ) : (
+          <>
+            {/* Non-RC: context above (for QR charts/tables) */}
+            {current.question.context && (
+              <div
+                className="p-5 rounded-xl mb-6 text-sm leading-relaxed"
+                style={{ background: "#1A2545", border: "1px solid #B68A3A33", color: "#EADFC8" }}
+              >
+                {current.question.passageTitle && (
+                  <p className="font-bold mb-2" style={{ color: "#E7C777" }}>
+                    {current.question.passageTitle}
+                  </p>
+                )}
+                <p style={{ whiteSpace: "pre-wrap" }}>{current.question.context}</p>
+              </div>
+            )}
 
-        {/* Question Card */}
-        <div
-          className="p-6 rounded-2xl mb-6"
-          style={{ background: "#1E2E5A", border: "1px solid #B68A3A44" }}
-        >
-          <p
-            className="text-lg leading-relaxed mb-6"
-            style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}
-          >
-            {current.question.questionText}
-          </p>
-
-          {/* AR Grid */}
-          {isAR && current.question.gridData && (
-            <div className="mb-6">
-              <ARGridView
-                gridData={current.question.gridData}
-                type={(current.question.type || "sequence") as "sequence" | "pattern" | "odd_one_out"}
-              />
-            </div>
-          )}
-
-          {/* Options */}
-          {!optionsUnlocked && (
-            <div className="text-center py-4">
-              <p className="text-sm animate-pulse" style={{ color: "#B68A3A" }}>
-                📖 Reading the question…
+            {/* Question Card */}
+            <div
+              className="p-6 rounded-2xl mb-6"
+              style={{ background: "#1E2E5A", border: "1px solid #B68A3A44" }}
+            >
+              <p
+                className="text-lg leading-relaxed mb-6"
+                style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}
+              >
+                {current.question.questionText}
               </p>
-            </div>
-          )}
 
-          {optionsUnlocked && (
-            <div className="space-y-3">
-              {isAR && current.question.options_ar ? (
-                // AR options rendered as small grids
-                <div className="grid grid-cols-2 gap-3">
-                  {(current.question.options_ar || []).map((cell: any, i: number) => {
-                    const label = getOptionLabel(i);
-                    const isSelected = current.userAnswer === label;
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => selectAnswer(label)}
-                        className="p-3 rounded-xl transition-all hover:scale-[1.02]"
-                        style={{
-                          background: isSelected ? "#B68A3A22" : "#0F1C3F",
-                          border: `2px solid ${isSelected ? "#E7C777" : "#B68A3A44"}`,
-                        }}
-                      >
-                        <div className="text-xs mb-1" style={{ color: "#B68A3A" }}>{label}</div>
-                        <ARGridView gridData={[[cell]]} type="single" size="small" />
-                      </button>
-                    );
-                  })}
+              {/* AR Grid */}
+              {isAR && current.question.gridData && (
+                <div className="mb-6">
+                  <ARGridView
+                    gridData={current.question.gridData}
+                    type={(current.question.type || "sequence") as "sequence" | "pattern" | "odd_one_out"}
+                  />
                 </div>
-              ) : (
-                // MCQ options
-                (current.question.options || []).map((opt, i: number) => {
-                  const label = getOptionLabel(i);
-                  const isSelected = current.userAnswer === label;
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => selectAnswer(label)}
-                      className="w-full text-left px-4 py-3 rounded-xl transition-all hover:opacity-90"
-                      style={{
-                        background: isSelected ? "#B68A3A22" : "#0F1C3F",
-                        border: `2px solid ${isSelected ? "#E7C777" : "#B68A3A44"}`,
-                        color: "#EADFC8",
-                        fontFamily: "Georgia, serif",
-                      }}
-                    >
-                      <span className="font-bold mr-2" style={{ color: "#B68A3A" }}>{label}.</span>
-                      {typeof opt === "string" ? opt.replace(/^[A-D]\.\s*/, "") : JSON.stringify(opt)}
-                    </button>
-                  );
-                })
+              )}
+
+              {/* Options */}
+              {!optionsUnlocked && (
+                <div className="text-center py-4">
+                  <p className="text-sm animate-pulse" style={{ color: "#B68A3A" }}>
+                    📖 Reading the question…
+                  </p>
+                </div>
+              )}
+
+              {optionsUnlocked && (
+                <div className="space-y-3">
+                  {isAR && current.question.options_ar ? (
+                    // AR options rendered as small grids
+                    <div className="grid grid-cols-2 gap-3">
+                      {(current.question.options_ar || []).map((cell: any, i: number) => {
+                        const label = getOptionLabel(i);
+                        const isSelected = current.userAnswer === label;
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => selectAnswer(label)}
+                            className="p-3 rounded-xl transition-all hover:scale-[1.02]"
+                            style={{
+                              background: isSelected ? "#B68A3A22" : "#0F1C3F",
+                              border: `2px solid ${isSelected ? "#E7C777" : "#B68A3A44"}`,
+                            }}
+                          >
+                            <div className="text-xs mb-1" style={{ color: "#B68A3A" }}>{label}</div>
+                            <ARGridView gridData={[[cell]]} type="single" size="small" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    // MCQ options
+                    (current.question.options || []).map((opt, i: number) => {
+                      const label = getOptionLabel(i);
+                      const isSelected = current.userAnswer === label;
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => selectAnswer(label)}
+                          className="w-full text-left px-4 py-3 rounded-xl transition-all hover:opacity-90"
+                          style={{
+                            background: isSelected ? "#B68A3A22" : "#0F1C3F",
+                            border: `2px solid ${isSelected ? "#E7C777" : "#B68A3A44"}`,
+                            color: "#EADFC8",
+                            fontFamily: "Georgia, serif",
+                          }}
+                        >
+                          <span className="font-bold mr-2" style={{ color: "#B68A3A" }}>{label}.</span>
+                          {typeof opt === "string" ? opt.replace(/^[A-D]\.\s*/, "") : JSON.stringify(opt)}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
               )}
             </div>
-          )}
-        </div>
+          </>
+        )}
 
         {/* Hint Scrolls */}
         {optionsUnlocked && (
