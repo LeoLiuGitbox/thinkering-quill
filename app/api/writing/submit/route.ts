@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chat, parseJSON } from "@/lib/claude";
+import { chat, parseJSON } from "@/lib/gemini";
 import { prisma } from "@/lib/prisma";
 import {
   buildWritingFullTaskCoachPrompt,

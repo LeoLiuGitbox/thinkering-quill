@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { chat, parseJSON } from "@/lib/claude";
+import { chat, parseJSON } from "@/lib/gemini";
 import { buildSpellsInTheWildSystemPrompt, buildSpellsInTheWildPrompt } from "@/lib/prompts/spells";
 import { ALL_KNOWLEDGE_POINTS, KnowledgePointCode } from "@/types/game";
 

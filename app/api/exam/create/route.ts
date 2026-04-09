@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { chat, parseJSON } from "@/lib/claude";
+import { chatPro as chat, parseJSON } from "@/lib/gemini";
 
 const SECTION_CONFIG: Record<
   string,

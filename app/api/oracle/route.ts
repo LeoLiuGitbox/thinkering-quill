@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { stream } from "@/lib/claude";
+import { stream } from "@/lib/gemini";
 import { buildOracleSystemPrompt, buildOracleUserMessage } from "@/lib/prompts/oracle";
 
 export async function POST(request: NextRequest) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chat } from "@/lib/claude";
+import { chat } from "@/lib/gemini";
 import { generateSceneImage } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import {
