@@ -2,63 +2,91 @@
  * Google Gemini — drop-in replacement for lib/claude.ts
  *
  * Split model strategy:
- *   chat()    → gemini-2.0-flash  (hints, writing feedback, oracle, spells)
- *   chatPro() → gemini-2.5-pro    (MCQ generation, AR, RC, exam creation)
- *   stream()  → gemini-2.0-flash  (oracle SSE streaming)
+ *   chat()    → gemini-flash-lite-latest  (hints, writing feedback, oracle, spells)
+ *   chatPro() → gemini-pro-latest         (MCQ generation, AR, RC, exam creation)
+ *   stream()  → gemini-flash-lite-latest  (oracle SSE streaming)
+ *
+ * Both functions retry up to 3× on 503 (high demand) with exponential backoff.
  */
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY!);
 
-const flashModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-const proModel   = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+const flashModel = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest" });
+const proModel   = genAI.getGenerativeModel({ model: "gemini-pro-latest" });
 
-// ─── chat — Flash (fast, cheap) ───────────────────────────────────────────────
+// ─── Retry helper ─────────────────────────────────────────────────────────────
+
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      lastErr = err;
+      const status = (err as { status?: number })?.status;
+      if (status === 503 && attempt < maxRetries - 1) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
+
+// ─── chat — Flash Lite (fast, cheap) ─────────────────────────────────────────
 
 export async function chat(
   system: string,
   user: string,
   maxTokens = 4096
 ): Promise<string> {
-  const result = await flashModel.generateContent({
-    systemInstruction: system,
-    contents: [{ role: "user", parts: [{ text: user }] }],
-    generationConfig: { maxOutputTokens: maxTokens },
+  return withRetry(async () => {
+    const result = await flashModel.generateContent({
+      systemInstruction: system,
+      contents: [{ role: "user", parts: [{ text: user }] }],
+      generationConfig: { maxOutputTokens: maxTokens },
+    });
+    return result.response.text();
   });
-  return result.response.text();
 }
 
-// ─── chatPro — 2.5 Pro (complex structured output) ───────────────────────────
+// ─── chatPro — Flash Latest (complex structured output) ──────────────────────
 
 export async function chatPro(
   system: string,
   user: string,
   maxTokens = 8192
 ): Promise<string> {
-  const result = await proModel.generateContent({
-    systemInstruction: system,
-    contents: [{ role: "user", parts: [{ text: user }] }],
-    generationConfig: { maxOutputTokens: maxTokens },
+  return withRetry(async () => {
+    const result = await proModel.generateContent({
+      systemInstruction: system,
+      contents: [{ role: "user", parts: [{ text: user }] }],
+      generationConfig: { maxOutputTokens: maxTokens },
+    });
+    return result.response.text();
   });
-  return result.response.text();
 }
 
-// ─── stream — Flash streaming for Oracle SSE ─────────────────────────────────
+// ─── stream — Flash Lite streaming for Oracle SSE ────────────────────────────
 
 export async function* stream(
   system: string,
   userMessages: { role: "user" | "model"; content: string }[],
   maxTokens = 2048
 ): AsyncGenerator<string> {
-  const result = await flashModel.generateContentStream({
-    systemInstruction: system,
-    contents: userMessages.map((m) => ({
-      role: m.role,
-      parts: [{ text: m.content }],
-    })),
-    generationConfig: { maxOutputTokens: maxTokens },
-  });
+  const result = await withRetry(() =>
+    flashModel.generateContentStream({
+      systemInstruction: system,
+      contents: userMessages.map((m) => ({
+        role: m.role,
+        parts: [{ text: m.content }],
+      })),
+      generationConfig: { maxOutputTokens: maxTokens },
+    })
+  );
   for await (const chunk of result.stream) {
     const text = chunk.text();
     if (text) yield text;
