@@ -707,7 +707,7 @@ export default function QuestPlayPage() {
                 </div>
               ) : (
                 // MCQ options
-                (current.question.options || []).map((opt: string, i: number) => {
+                (current.question.options || []).map((opt, i: number) => {
                   const label = getOptionLabel(i);
                   const isSelected = current.userAnswer === label;
                   return (

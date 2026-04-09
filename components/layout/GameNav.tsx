@@ -5,13 +5,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 interface NavProfile {
-  id: number;
-  mageName: string;
-  avatarColour: string;
-  totalXP: number;
-  rank: string;
-  auraAlignment: string;
-  quillEnergy: number;
+  mageName?: string;
+  avatarColour?: string;
+  totalXP?: number;
+  rank?: string;
+  auraAlignment?: string;
+  quillEnergy?: number;
 }
 
 const AURA_GLOW: Record<string, string> = {
@@ -37,7 +36,9 @@ const NAV_ITEMS = [
   { href: "/vault", label: "Artifact Vault", icon: "💎" },
 ];
 
-export default function GameNav({ profile }: { profile: NavProfile | null }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export default function GameNav({ profile: profileRaw }: { profile?: any }) {
+  const profile = profileRaw as NavProfile | null | undefined;
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -93,7 +94,7 @@ export default function GameNav({ profile }: { profile: NavProfile | null }) {
             {/* XP Sparks */}
             <div className="hidden sm:flex items-center gap-1 text-sm" style={{ color: "#EADFC8" }}>
               <span>✦</span>
-              <span style={{ color: "#E7C777" }}>{profile.totalXP.toLocaleString()}</span>
+              <span style={{ color: "#E7C777" }}>{(profile.totalXP ?? 0).toLocaleString()}</span>
             </div>
 
             {/* Avatar + Aura */}
@@ -109,7 +110,7 @@ export default function GameNav({ profile }: { profile: NavProfile | null }) {
                 className="w-7 h-7 rounded-full flex items-center justify-center text-sm"
                 style={{
                   background: profile.avatarColour,
-                  boxShadow: `0 0 8px ${AURA_GLOW[profile.auraAlignment] || AURA_GLOW.bright}`,
+                  boxShadow: `0 0 8px ${AURA_GLOW[profile.auraAlignment ?? "bright"] || AURA_GLOW.bright}`,
                 }}
               >
                 🧙
@@ -122,7 +123,7 @@ export default function GameNav({ profile }: { profile: NavProfile | null }) {
                   {profile.rank}
                 </p>
               </div>
-              <span className="text-xs">{AURA_ICON[profile.auraAlignment]}</span>
+              <span className="text-xs">{AURA_ICON[profile.auraAlignment ?? "bright"]}</span>
             </button>
 
             {/* Dropdown menu */}
