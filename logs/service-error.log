@@ -1,0 +1,270 @@
+POST /api/quest/generate error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent: [503 Service Unavailable] This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tc (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:19104)
+    at async u (.next/server/chunks/_12-q4j4._.js:293:1181)
+    at async c (.next/server/chunks/_12-q4j4._.js:293:5347) {
+  status: 503,
+  statusText: 'Service Unavailable',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/quest/generate error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent: [503 Service Unavailable] This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tc (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:19104)
+    at async u (.next/server/chunks/_12-q4j4._.js:293:1181)
+    at async c (.next/server/chunks/_12-q4j4._.js:293:5347) {
+  status: 503,
+  statusText: 'Service Unavailable',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [404 Not Found] This model models/gemini-2.0-flash is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent: [404 Not Found] models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [503 Service Unavailable] This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18923) {
+  status: 503,
+  statusText: 'Service Unavailable',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent: [404 Not Found] This model models/gemini-2.0-flash-lite is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18934) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/hint error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent: [404 Not Found] This model models/gemini-2.0-flash-lite is no longer available to new users. Please update your code to use a newer model for the latest features and improvements.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18934) {
+  status: 404,
+  statusText: 'Not Found',
+  errorDetails: undefined
+}
+POST /api/quest/generate error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent: [503 Service Unavailable] This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.
+    at G (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async tc (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:19117)
+    at async u (.next/server/chunks/_12-q4j4._.js:293:1181)
+    at async c (.next/server/chunks/_12-q4j4._.js:293:5347) {
+  status: 503,
+  statusText: 'Service Unavailable',
+  errorDetails: undefined
+}
+POST /api/quest/generate error: Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent: [503 Service Unavailable] This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.
+    at P (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4746)
+    at async H (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:4561)
+    at async q (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:10226)
+    at async (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:19327)
+    at async tl (.next/server/chunks/lib_gemini_ts_0m69.7i._.js:1:18961)
+    at async u (.next/server/chunks/_12-q4j4._.js:293:1181)
+    at async c (.next/server/chunks/_12-q4j4._.js:293:5347) {
+  status: 503,
+  statusText: 'Service Unavailable',
+  errorDetails: undefined
+}
