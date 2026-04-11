@@ -14,12 +14,12 @@
 
 const HINT1_TOOL: Record<string, string> = {
   // Quantitative Reasoning
-  "QR-01": "Write out the sequence and jot the difference between each pair of numbers underneath — then check whether those differences form their own pattern.",
+  "QR-01": "Write out the sequence and jot the gap between each pair of numbers underneath. Then run through this checklist: (1) Are the numbers going up? Try addition for small gaps, multiplication for large ones. (2) Going down? Try subtraction or division. (3) Alternating up/down? Split the odd-position and even-position numbers into two separate mini-sequences and find each rule. (4) Does one number keep repeating? Ignore it — it's a dummy. Find the pattern in the rest. (5) Two interleaved tracks? List positions 1,3,5 together and positions 2,4,6 together.",
   "QR-02": "Write a fraction: favourables ÷ total. Count the total AFTER any items have been removed or added, then count how many match what you want.",
   "QR-03": "Write the number of choices for each decision and multiply them: [choice 1] × [choice 2] × [choice 3]. A quick tree diagram can help if you're unsure.",
   "QR-04": "Write the ratio as a fraction, then ask: what do I multiply (or divide) the top and bottom by to get the new amount?",
   "QR-05": "Convert everything to the same form first — either all fractions or all decimals — before you compare or calculate.",
-  "QR-06": "Write the formula you need: Speed × Time = Distance, or Rate × Time = Amount. Fill in the two values you know, then solve for the missing one.",
+  "QR-06": "Use the 'rate of 1 unit' strategy: reduce each rate to what ONE worker (or tap, or vehicle) can do in ONE unit of time. If two agents are involved, write each as a fraction of the whole task per unit time, then add the fractions. The combined total tells you how fast they work together.",
   "QR-07": "Make a quick table: write each person's name in a row and fill in what you know with ✓ or ✗. Use the given clues to eliminate options one by one.",
   "QR-08": "Put your finger on the exact row you need in the table, then slide across to the correct column — don't mix rows or skip a column.",
   "QR-09": "Read the axis labels before looking at any numbers. For comparison questions, find both values on the chart first, then do the arithmetic.",
@@ -37,9 +37,9 @@ const HINT1_TOOL: Record<string, string> = {
   "AR-03": "Write the fill of each cell in order: solid, striped, outline... Do you see a repeating cycle?",
   "AR-04": "Write the size of the shape in each cell: large, small, large... Is it alternating, or shrinking/growing in one direction?",
   "AR-05": "Count the number of shapes inside each cell and write it down: 1, 2, 3... By how much does it change each step?",
-  "AR-06": "Sketch a tiny 3×3 grid for each cell. Mark where the shape IS, then mark where it moves to in the next cell — trace the path.",
-  "AR-07": "Cover the third column. Look at what the first two columns contain — does combining (overlapping) them produce what's in column 3?",
-  "AR-08": "Find the rule that THREE of the four shapes share. The odd one out is the shape that breaks that rule — the answer is the one that doesn't fit.",
+  "AR-06": "Think of each cell as a compass with 8 positions: N, NE, E, SE, S, SW, W, NW. Write the compass position of the shape in each step of the sequence. Is it moving clockwise or anticlockwise? By how many positions each step?",
+  "AR-07": "Check which variant this is: (1) Combination — cover column 3 and see if overlapping columns 1 and 2 produces it; (2) Superimposition — does image A overlaid on image B give the result? Or result minus A = B? (3) Inverse — is one image the foreground/background swap of another (solid↔outline)? Identify the variant first, then apply it.",
+  "AR-08": "Use 'commonality first, then isolation': Step 1 — find the one rule that exactly THREE of the four images share (e.g., all have the same fill, or all rotate by the same amount). Step 2 — identify which image breaks that rule. Important: never split them 2-vs-2. There is always one clear group of 3 and one odd one out.",
   "AR-09": "Track ONE attribute at a time: first just the rotation, then just the fill, then just the size or count. Write each rule down separately before putting them together.",
   "AR-10": "Look at A → B. What exactly changed? Now check: does that SAME change turn C into the right answer?",
 

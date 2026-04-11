@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import GameNav from "@/components/layout/GameNav";
 import ARGridView from "@/components/game/ARGridView";
+import MarkdownContext from "@/components/game/MarkdownContext";
 
 interface Question {
   questionText: string;
@@ -77,6 +78,8 @@ export default function QuestPlayPage() {
 
   const unlockTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const logPathRef = useRef<string>("");
+  const [countdown, setCountdown] = useState(60);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   useEffect(() => {
     const profileId = localStorage.getItem("activeProfileId");
@@ -237,6 +240,20 @@ export default function QuestPlayPage() {
       startReadTimer(currentIdx);
     }
     return () => clearTimeout(unlockTimerRef.current);
+  }, [currentIdx, generating]);
+
+  // Countdown timer — resets to 60 on each new question
+  useEffect(() => {
+    if (generating || questions.length === 0) return;
+    setCountdown(60);
+    clearInterval(countdownRef.current);
+    countdownRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { clearInterval(countdownRef.current); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(countdownRef.current);
   }, [currentIdx, generating]);
 
   function navigateTo(idx: number) {
@@ -611,7 +628,33 @@ export default function QuestPlayPage() {
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* Calm countdown */}
+            {(() => {
+              const r = 14;
+              const circ = 2 * Math.PI * r;
+              const progress = countdown / 60;
+              return (
+                <div className="flex items-center gap-1.5" title={`${countdown}s remaining`}>
+                  <svg width="36" height="36" style={{ transform: "rotate(-90deg)" }}>
+                    <circle cx="18" cy="18" r={r} fill="none" stroke="#1E2E5A" strokeWidth="3" />
+                    <circle
+                      cx="18" cy="18" r={r}
+                      fill="none"
+                      stroke="#B68A3A"
+                      strokeWidth="3"
+                      strokeDasharray={circ}
+                      strokeDashoffset={circ * (1 - progress)}
+                      strokeLinecap="round"
+                      style={{ transition: "stroke-dashoffset 1s linear" }}
+                    />
+                  </svg>
+                  <span className="text-sm tabular-nums" style={{ color: "#B68A3A", minWidth: "2ch" }}>
+                    {countdown}
+                  </span>
+                </div>
+              );
+            })()}
             <button
               onClick={toggleFlag}
               className="p-2 rounded-lg text-sm transition-all"
@@ -636,7 +679,7 @@ export default function QuestPlayPage() {
                 background: i === currentIdx
                   ? "#E7C777"
                   : q.userAnswer
-                  ? (q.userAnswer === q.question.correct ? "#2E6B3A" : "#6B2E2E")
+                  ? "#2E4A7A"
                   : q.flagged
                   ? "#B68A3A33"
                   : "#1E2E5A",
@@ -667,7 +710,7 @@ export default function QuestPlayPage() {
                   {current.question.passageTitle}
                 </p>
               )}
-              <p style={{ whiteSpace: "pre-wrap" }}>{current.question.context}</p>
+              <MarkdownContext text={current.question.context} />
             </div>
 
             {/* Right: Question + Options */}
@@ -731,7 +774,7 @@ export default function QuestPlayPage() {
                     {current.question.passageTitle}
                   </p>
                 )}
-                <p style={{ whiteSpace: "pre-wrap" }}>{current.question.context}</p>
+                <MarkdownContext text={current.question.context} />
               </div>
             )}
 

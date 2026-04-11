@@ -191,6 +191,214 @@ MVP unlocks regions 1–5 and the Tower. The Shadow Vault appears only when Shad
 
 ---
 
+## 8a. ExamSuccess Subject Pedagogy
+
+> Source: ExamSuccess.com.au — 6 preparation courses reviewed and synthesised.
+> These findings inform question generation prompts, hint scaffolds, and writing coaching content.
+
+---
+
+### 8a.1 Quantitative Reasoning — Key Strategies
+
+**Number Series: 6 Subtypes**
+
+All sequence questions belong to one of these six categories. The AI question generator and hint system use this taxonomy:
+
+| Subtype | Description | Example |
+|---|---|---|
+| **Ascending** | Each term higher than the last | `2, 5, 9, 14, _` (gaps +3, +4, +5…) |
+| **Descending** | Each term lower than the last | `100, 91, 83, 76, _` |
+| **Combination** | Alternating add/multiply or mixed operations | `3, 6, 5, 10, 9, 18, _` |
+| **Gaps** | The *differences* between terms form their own pattern | `1, 2, 4, 7, 11, _` (gaps: 1,2,3,4…) |
+| **Stand-in** | One number acts as a placeholder or is excluded from the pattern | `4, 9, 0, 16, 25, 0, _` |
+| **Dual-track (Jumps)** | Two interleaved sequences — odd-position and even-position terms follow separate rules | `5, 0, 7, -1, 9, -2, _` |
+
+**Grouped Images & Matrices**
+- Numbers embedded in shapes or grids — check horizontal, vertical, and diagonal relationships
+- Verify any rule against multiple rows/columns before committing
+
+**Worded Problems: The 5-Step Coding Method**
+
+> "Code" the problem first — convert English into maths, then calculate.
+
+1. **Requirement** — what exactly is the question asking for?
+2. **Notate** — write shorthand for every piece of data; discard irrelevant words
+3. **Calculate** — connect symbols to the question
+4. **Solve** — produce the answer
+5. **Check** — does the answer make sense in context?
+
+**Rates: The Rate-of-1 Principle**
+
+> Always reduce to "per 1 unit" before scaling.
+> _"Rose writes 3 pages in 12 min → ¼ page/min. Eric writes 12 pages in 30 min → 2/5 page/min."_
+
+**3-Step General Test Strategy**
+1. Identify the question type
+2. If solvable quickly — solve it
+3. If not — skip and guess at the end (B or C are statistically slightly higher)
+
+---
+
+### 8a.2 Abstract Reasoning — Key Strategies
+
+**Core Principle: Every pattern is already there — your job is to find it.**
+
+**Strategy 1 — Made Up of Parts**
+Decompose each image into its individual components before looking for a rule. Never analyse the whole image as one unit.
+
+**Strategy 2 — Patterns Within Image vs Across Sequence**
+Check for rules inside a single image *and* rules that change across the sequence.
+
+**Strategy 3 — Commonality + Isolation**
+- **Commonality**: Which attribute is present in every image? → That is the sequence rule.
+- **Isolation**: Which attribute appears in only one image? → That image may be the odd-one-out, or that attribute is the key differentiator.
+
+**The 14 Attribute Types (Pattern Vocabulary)**
+
+| Category | Attributes |
+|---|---|
+| Spatial | Direction (compass: N/S/E/W/NE/SE/SW/NW), Position (map-coordinate), Stacks, Ordering |
+| Transformations | Rotation (clockwise/anticlockwise, 45°/90°/180°), Flips, Inverse, Combined transformation |
+| Visual | Size (big→small), Fill/Colour (solid→outline→striped), Angle |
+| Compound | Superimposition (two shapes overlaid — predict combined result), Odd-one-out |
+| Symbol-embedded | Letters in patterns, Numbers in patterns |
+
+**Odd-One-Out questions**: Apply commonality first to find what 3 images share, then isolation identifies the outlier. Do not try to find what is unique about each image individually.
+
+**Time Strategy**: ~34 seconds per AR question in the real ASET. If a pattern is not found within budget — skip and guess (B or C).
+
+---
+
+### 8a.3 Reading Comprehension — Key Strategies
+
+**Read questions first, then the passage.** Reading the passage first causes double-reading and wastes time.
+
+**4-Step Approach per Question**
+1. Find and read the question
+2. Know what you are looking for in the text
+3. Eliminate options that contradict the text
+4. Use keyword weighting and option differentiation to select
+
+**Text Types Covered in ASET/GATE**
+
+| Type | Sub-skill |
+|---|---|
+| Narrative (fiction) | Literal, figurative, implied meaning |
+| Non-fiction | Provided information, implied inference |
+| Interview | Distinguishing voice, stance, implied attitude |
+| Historical text | Context inference, archaic vocabulary |
+| Autobiographical | Personal voice, perspective, reliability |
+| Poetry | Structure analysis, meaning/metaphor |
+| Cartoons | Image inference, language-image interaction |
+| Proverbs / idioms | Figurative meaning, application |
+
+**Comprehension Levels**
+- **Literal**: directly stated in the text
+- **Figurative**: stated through imagery, metaphor, or tone
+- **Implied**: not stated — must be inferred from context clues
+
+**Time safeguard**: If the last 30 seconds remain with unanswered questions — guess B or C. Never leave blanks.
+
+---
+
+### 8a.4 Narrative Writing — Key Strategies (CIIW)
+
+**Time Allocation: 10 / 75 / 15**
+
+| Phase | Share | 20-min exam | 25-min ASET |
+|---|---|---|---|
+| Plan | 10% | 2 min | 2.5 min |
+| Write | 75% | 15 min | ~19 min |
+| Review | 15% | 3 min | ~4 min |
+
+**Word Count Targets**
+
+| Time | Paragraphs | Target words |
+|---|---|---|
+| 20 min | 4 | 250–300 |
+| 25 min | 4–5 | 300–400 |
+| 30 min | 5 | 350–400 |
+
+**The Planning Rule**
+> Write one sentence per paragraph — nothing more. If "this story is about…" cannot be completed in one sentence, the idea is not focused enough yet.
+
+**Prompt Anchoring (non-negotiable)**
+The prompt must be the *core* of the story — not tacked on. Three integration methods:
+- Image prompt → the main action depicted becomes the main event
+- Word prompt → the word appears in the central paragraph(s)
+- Sentence prompt → can open or close the story
+
+If a marker cannot immediately see how the story connects to the prompt — marks are lost regardless of writing quality.
+
+**Characters**: 1–2 characters maximum in a timed piece. More adds complexity without reward.
+
+**Structures to avoid in exam conditions**: poetry, exposition, persuasive writing, non-standard formats, excessive dialogue.
+
+**Show, Not Tell — 4-Step Process**
+1. Identify the emotion/state to convey
+2. Find the physical sensation or action that *produces* that emotion in the reader
+3. Write the scene using only observable detail
+4. Read back: if you used the emotion word itself — replace it
+
+**Stand-Out Techniques** (after core skills are solid)
+- Unexpected angle on a familiar prompt
+- Sensory opening that drops the reader into a scene
+- Circular structure (ending echoes the opening)
+- A specific, concrete detail that makes the world feel real
+
+---
+
+### 8a.5 Persuasive & Discussion Writing — Key Strategies (CIIW)
+
+**Time Allocation: 25 / 60 / 15**
+
+| Phase | Share | 20-min exam | 30-min exam |
+|---|---|---|---|
+| Plan | 25% | 5 min | 7.5 min |
+| Write | 60% | 12 min | 18 min |
+| Review | 15% | 3 min | 4.5 min |
+
+*(Planning takes longer than narrative because argument selection is the highest-leverage decision.)*
+
+**Genre Distinction**
+
+| | Persuasive | Discussion |
+|---|---|---|
+| Goal | Convince the reader | Present both sides fairly |
+| Stance | Clear single position | Balanced, may conclude with view |
+| Counter-argument | Required | Not required |
+| Use of "I" | Acceptable | Minimal |
+
+**Persuasive Structure: TEEL × 3**
+
+```
+Introduction: topic sentence → stated position → preview two arguments
+Body P1:  Topic → Explanation → Example/Evidence → Link back
+Body P2:  Topic → Explanation → Example/Evidence → Link back
+Counter-argument: acknowledge opposing view → rebut with evidence
+Conclusion: restate position → call to action or closing thought
+```
+
+**Discussion Structure**
+
+```
+Introduction: topic sentence → preview both sides
+Body P1: Argument for (TEEL)
+Body P2: Argument against (TEEL)
+Body P3: (optional) Second argument for
+Conclusion: balanced summary → your view (optional)
+```
+
+**Language and Tone Rules**
+- Build authority through logic, not emotion
+- Avoid: all-caps, excessive punctuation, exaggerated claims, stacked rhetorical questions
+- Each sentence carries one clear idea — no nested clauses
+- Persuasive uses "I believe…"; Discussion stays objective
+
+**Argument Selection** is the highest-leverage skill. A well-chosen, original argument earns more than a common one well-executed. Pre-prepare 3–5 flexible arguments before exam day.
+
+---
+
 ## 9. 80/20 Adaptive Session Composition
 
 ### The Principle
