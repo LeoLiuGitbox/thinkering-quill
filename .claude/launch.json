@@ -5,7 +5,7 @@
       "name": "thinkering-quill",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 3000
+      "autoPort": true
     }
   ]
 }
