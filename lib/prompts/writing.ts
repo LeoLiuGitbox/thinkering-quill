@@ -10,10 +10,13 @@ const WRITING_SKILL_GUIDANCE: Record<
 > = {
   show_not_tell: {
     label: "Show, Not Tell",
-    focus: "Turn flat emotional statements into concrete action, dialogue, and sensory detail.",
+    focus: "Turn flat emotional statements into concrete action, dialogue, and sensory detail using a 4-step process.",
     examples: [
-      "Replace 'She was nervous' with body language, thoughts, or dialogue.",
-      "Use a precise image or action to let the reader infer the feeling.",
+      "Step 1: Start with a flat 'telling' sentence (e.g., 'She was nervous').",
+      "Step 2: Write 3–4 keywords for the tone to convey (e.g., trembling, dry mouth, fast heartbeat).",
+      "Step 3: Choose the most powerful sense for that tone (sight, sound, touch, smell, or movement).",
+      "Step 4: Write one deep sensory 'showing' sentence — 1 strong sentence beats 2 shallow ones.",
+      "Balance: not every sentence needs to 'show'. One or two well-placed showing sentences per paragraph is enough.",
     ],
   },
   opening_hook: {
@@ -50,10 +53,42 @@ const WRITING_SKILL_GUIDANCE: Record<
   },
   prompt_interpretation: {
     label: "Prompt Interpretation",
-    focus: "Read the prompt carefully and choose a direction that can be developed clearly.",
+    focus: "Read the prompt carefully, choose one clear direction, and keep the prompt central to the whole piece.",
     examples: [
       "Pick one strong angle instead of trying to write every possible idea.",
-      "Make sure the story stays connected to the prompt all the way through.",
+      "One-sentence story test: 'This story is about X.' If you can't say it in one sentence, refocus your idea.",
+      "Prompt anchoring rule: the prompt must appear in more than half the paragraphs OR be the main plot — assessors disqualify stories where the prompt is only a side detail.",
+      "Make sure the story stays connected to the prompt all the way through, not just at the start.",
+    ],
+  },
+  narrative_structure: {
+    label: "Narrative Structure",
+    focus: "Plan and write a narrative with a clear 4- or 5-paragraph arc within the time limit.",
+    examples: [
+      "4-paragraph structure: Introduction (setting/character) → Lead-up to main event → Main event (climax) → Resolve/ending.",
+      "5-paragraph structure: same, but split the main event across two paragraphs for more depth.",
+      "Time allocation (20-min task): 2 min plan / 15 min write / 3 min review.",
+      "Time allocation (30-min task): 3 min plan / 22.5 min write / 4.5 min review.",
+      "Plan rule: write one sentence per paragraph. If you can't, your structure isn't clear yet.",
+    ],
+  },
+  main_event: {
+    label: "Main Event (Climax)",
+    focus: "Identify and develop one clear climax — the single most important moment in the story.",
+    examples: [
+      "There must be exactly ONE main event. Stories with competing events have no identifiable climax.",
+      "Common problems: (a) no climax at all — the story just describes things happening; (b) the climax is there but not developed; (c) two or more events compete and the reader can't tell which is the point.",
+      "Fix: ask 'What is the one moment everything else leads towards?' Develop that moment across at least one full paragraph.",
+    ],
+  },
+  persuasive_structure: {
+    label: "Persuasive Structure",
+    focus: "Write a persuasive or discussion piece using TEEL structure and language devices.",
+    examples: [
+      "Persuasive structure (TEEL × 3): Introduction (hook + position) → Body 1: strongest argument (Topic, Explanation, Evidence, Link) → Body 2: TEEL → Body 3: counter-argument + rebuttal → Conclusion (restate position + call to action).",
+      "Discussion structure (balanced): Introduction (context + overview) → 2 paragraphs for → 2 paragraphs against → Conclusion (balanced summary or own view).",
+      "Language devices: inclusive language (we, our, us), rhetorical questions, rule of three (e.g., 'It is simple, fair, and necessary'), statistics, expert opinion.",
+      "Time allocation: 25% plan / 60% write / 15% review — persuasive writing needs more planning time than narrative.",
     ],
   },
 };
@@ -204,6 +239,12 @@ RULES:
 - Keep tone encouraging and clear
 - Do not present yourself as an official examiner
 
+NARRATIVE CHECKLIST (use these when reviewing a narrative piece — surface the most critical gap):
+1. Structure: Does the piece have a clear 4- or 5-paragraph arc? (Intro → Lead-up → Main event → Resolution)
+2. Prompt relevance: Is the prompt central to the story (featured in >50% of paragraphs or as the main plot)? Flag if it appears only as a side detail.
+3. Show, not tell: Is there at least one concrete sensory or action-based moment, rather than flat telling statements?
+4. Main event development: Is there exactly ONE identifiable climax? Is it developed across at least one paragraph?
+
 OUTPUT: Valid JSON only. No markdown fences.
 
 Return:
@@ -214,9 +255,11 @@ Return:
   "modelExample": "Optional short model line or sentence",
   "rubricSummary": {
     "promptRelevance": "short phrase",
+    "structure": "short phrase — note if 4/5-para arc is present",
+    "mainEvent": "short phrase — note if climax is clear and developed",
     "ideas": "short phrase",
     "organisation": "short phrase",
-    "language": "short phrase"
+    "language": "short phrase — note any show-not-tell moments"
   },
   "nextStep": "Short encouragement"
 }`;

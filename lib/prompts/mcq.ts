@@ -17,8 +17,18 @@ const QR_KNOWLEDGE_POINT_NOTES = `
 KNOWLEDGE POINT AUTHORING RULES (apply these to the relevant topic codes):
 
 QR-01 Number patterns & sequences:
-  - Rule must be arithmetic (+/−) or geometric (×/÷), never both combined at Apprentice
-  - At Archmage, use two interleaved sequences or a second-order difference
+  Six subtypes — choose the right one for the difficulty level:
+  1. Ascending (up): small gaps → try addition; large gaps → try multiplication
+  2. Descending (down): small gaps → try subtraction; large gaps → try division
+  3. Combination: alternating up/down — split odd-position and even-position terms into two sub-series, each with its own rule
+  4. Gaps (hard): large irregular gaps → try exponentials (squares, cubes) or square roots
+  5. Stand-in constants: one number repeats as a "dummy" — exclude it, then find the pattern in the remaining numbers
+  6. Jumps (dual-track): two interleaved series — positions 1,3,5 follow one rule; positions 2,4,6 follow another
+  Also valid: grouped bracket format [16,33][7,15][?,55] and matrix format (rows/cols with one missing cell)
+  Difficulty mapping:
+    Apprentice → subtypes 1 & 2 only (ascending/descending)
+    Journeyman → subtypes 3 or 4 (combination or gaps)
+    Archmage  → subtypes 5 or 6 (stand-in/jumps), or matrix/bracket format
   - Ask "what comes next?" or "what is the missing term?"
 
 QR-02 Probability & chance:
@@ -32,9 +42,11 @@ QR-03 Combinatorics & counting:
   - One distractor = sum instead of product; one = miscount of one category
 
 QR-04 Ratio & proportion:
+  - "Per unit first" method: total ÷ (sum of ratio parts) = value of 1 part; then multiply each part.
+    Example: ratio 3:5, total 40 → 1 part = 40÷8 = 5 → shares are 15 and 25.
   - Use a real-world context: recipe scaling, mixing colours, map scale
   - State the ratio explicitly in the question
-  - At Archmage, add a step before or after (e.g., find total before applying ratio)
+  - At Archmage, add a pre-step (find total first) or post-step (apply the result to a further calculation)
 
 QR-05 Fractions & percentages:
   - Avoid trivial fractions (1/2, 1/4) at Journeyman+
@@ -42,6 +54,9 @@ QR-05 Fractions & percentages:
   - Distractors: wrong numerator/denominator flip; applying % to wrong base
 
 QR-06 Time & rate:
+  - Core principle — "Rate of 1 unit": always reduce the rate to 1 unit before scaling.
+    For work-rate problems (two workers, two taps): express each agent's share of the task per unit time as a fraction, then ADD the fractions to find the combined rate.
+    Example: Worker A does 1/6 of a job per hour; Worker B does 1/4 per hour → together 1/6 + 1/4 = 5/12 per hour → job takes 12/5 hours.
   - Use distance/speed/time OR work-rate problems (two taps filling a tank, two workers)
   - All values must be whole numbers at Apprentice; decimals allowed at Archmage
   - At least one distractor = correct formula but arithmetic error
@@ -89,14 +104,64 @@ QR-14 Symmetry & transformation (numeric):
   - Draw the grid in "context" using plain text rows
 
 QR-15 Multi-step word problems:
+  - 5-step solving method (author the explanation using these steps):
+    (1) Find the requirement — what is the question actually asking?
+    (2) Notate key info in shorthand — pull out only the numbers/units that matter
+    (3) Unify units — convert so all values are in the same unit before calculating
+    (4) Calculate — show each arithmetic operation clearly
+    (5) Verify — check the answer makes sense in the context of the story
   - Must visibly chain exactly 2–3 of the above knowledge points in one scenario
-  - The explanation MUST list each sub-step as a numbered step
+  - The explanation MUST list each sub-step as a numbered step (use the 5-step framework)
   - At Archmage, at least one step depends on the result of a previous step
 
 QR-16 Science reasoning:
   - Introduce a FICTIONAL physical law or property in the question (so no prior science knowledge is needed)
   - Example: "On planet Zorb, all objects weigh 3 times their Earth weight."
   - Apply the given rule to a novel scenario — pure reasoning, no memorisation
+`;
+
+// Per-knowledge-point authoring constraints grounded in real ASET AR question patterns
+const AR_KNOWLEDGE_POINT_NOTES = `
+ABSTRACT REASONING — KNOWLEDGE POINT AUTHORING NOTES:
+
+AR-01 (Rotation):
+  - Rotation is always around a fixed point (inside the shape, at a corner, or on the page)
+  - Common increments: 45°, 90°, 135°, 180°
+  - "Direction" (N/NE/E/SE/S/SW/W/NW on a compass) is a variant of rotation — treat it the same way
+  - At Apprentice: 90° or 180° steps only. At Archmage: 45° or 135° steps, or compound rotations.
+
+AR-02 (Reflection/Flips):
+  - Horizontal flip (on vertical axis): left ↔ right. Size and proportions are preserved.
+  - Vertical flip (on horizontal axis): top ↔ bottom. Size and proportions are preserved.
+  - At Archmage, "stacks" variant: flip a multi-layer image so the bottom layer becomes the new top (most visible) layer.
+  - Never reflect AND rotate in the same Apprentice/Journeyman question.
+
+AR-04 (Size changes):
+  - At Archmage, use the "ordering" variant: 5 answer options arranged by degree of change (e.g. 5 different sizes); student must identify which fits a specific position in the sequence.
+
+AR-06 (Position changes):
+  - Think of the cell as a compass with 8 positions: N, NE, E, SE, S, SW, W, NW.
+  - Elements move clockwise or anticlockwise each step, commonly 45° or 90° per step.
+  - Track the element's compass position explicitly in the explanation (e.g. "moves from NW → N → NE").
+
+AR-07 (Combination rules):
+  - Also covers two special variants:
+    • Superimposition: image A overlaid on image B produces the result; or result minus A = B
+    • Inverse: one image is the foreground/background swap of another (solid↔outline, filled↔empty); this is a 1-to-1 relationship, not a sequential rule
+  - The explanation must name which variant is used.
+
+AR-08 (Odd-one-out):
+  - Use "commonality + isolation" strategy:
+    (1) Find the rule shared by exactly 3 of the 4 images (commonality)
+    (2) Identify the one that breaks that rule (isolation)
+  - NEVER construct a 2-vs-2 split — always 3 share the rule, 1 breaks it.
+  - The explanation MUST name the shared rule first, then name why the odd one breaks it.
+
+AR-09 (Multi-attribute):
+  - Track each attribute (rotation, fill, size, count) separately first; write each rule before combining.
+  - At Archmage:
+    • Letters in patterns variant: a letter represents a shape; a modifier letter represents a transform
+    • Numbers in patterns variant: dots/lines as visual quantities → treat as a numerical sequence
 `;
 
 export function buildQRSystemPrompt(): string {
@@ -251,6 +316,8 @@ TOPIC NOTES:
 - AR-09 (Multi-attribute): "sequence" or "pattern" type. Track 3 attributes simultaneously.
 - AR-10 (Analogy): "analogy" type ONLY. gridData is [[A,B],[C,empty]]. Transformation A→B must also map C→D.
 
+${AR_KNOWLEDGE_POINT_NOTES}
+
 OUTPUT FORMAT — a JSON array of exactly ${totalCount} objects:
 [
   {
@@ -287,10 +354,25 @@ You create reading passages and questions for Year 5 students (age 10–11).
 
 PASSAGE RULES:
 - 200–400 words per passage
-- Genre variety (rotate across sessions): fiction, non-fiction, persuasive, informational, poetry, drama
+- Genre variety — rotate across ALL 8 text types across sessions:
+    1. Narrative fiction
+    2. Non-fiction / informational
+    3. Persuasive / opinion piece
+    4. Poetry
+    5. Interview / dialogue / script
+    6. Historical text
+    7. Autobiographical
+    8. Cartoon / visual described in words
 - Can include embedded data for RC-06 (tables, lists of facts)
 - Age-appropriate vocabulary with 2–3 challenging words that can be inferred from context
 - Engaging topics: nature, science, history, adventure, sport, animals, technology, biography
+
+5-STEP ACTIVE READING APPROACH (inform how questions are sequenced and calibrated):
+  (1) Questions are read first — ensure each question can be targeted before reading the whole passage
+  (2) Passage is read actively — key ideas should be identifiable (not buried in decorative prose)
+  (3) Relevant section re-read for each question — question targets should point to a specific paragraph
+  (4) Clearly wrong options eliminated first — ensure 1–2 options are dismissible without re-reading
+  (5) Best answer selected — for RC-03 inference, the best answer must be the ONLY logically defensible deduction
 
 GENRE-SPECIFIC FORMAT RULES:
 - Poetry: Preserve line breaks using \\n within the string. Include 2–4 stanzas. At least one question must quote or reference a specific line.
@@ -308,6 +390,18 @@ RC-03 INFERENCE — CRITICAL RULE:
   The student must logically DEDUCE the answer from clues in the text.
   If you can find the answer by quoting one sentence from the passage verbatim, it is NOT an inference question — rewrite it.
   Wrong distractors for RC-03: one option should be a true fact from the passage (but wrong answer to this specific question); one should be a plausible guess contradicted by the text.
+
+RC-03 INFERENCE — COMMON TYPES:
+  Character motivation, implied consequence, author's attitude.
+  Test (self-check): if you can quote one sentence from the passage that IS the answer → it is NOT an inference question; rewrite it.
+
+RC-04 VOCABULARY IN CONTEXT:
+  Design the question so the student can solve it by covering the word, reading the sentence, deciding what word fits, then matching to options.
+  All four options must be real words that could plausibly belong to the sentence out of context — only in context does one option clearly win.
+
+RC-05 TEXT STRUCTURE:
+  The answer options ARE the structural descriptions (e.g., "It compares two things", "It tells a story in time order", "It argues a point").
+  Do not ask about structure by quoting a line — ask at the whole-passage level.
 
 RC-06 TABLE/CHART — FORMAT RULE:
   When a passage includes a table, the passageText must contain the table in this format:

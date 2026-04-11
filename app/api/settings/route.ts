@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 const ALLOWED_KEYS = [
-  "ai_platform",        // "anthropic" | "openai"
+  "ai_platform",        // "anthropic" | "openai" | "gemini"
   "anthropic_api_key",
   "openai_api_key",
+  "google_ai_key",
   "anthropic_model",    // e.g. "claude-sonnet-4-5"
   "openai_text_model",  // e.g. "gpt-4o"
   "openai_image_model", // e.g. "dall-e-3"
+  "gemini_pro_model",   // e.g. "gemini-2.5-pro-latest"
+  "gemini_flash_model", // e.g. "gemini-2.0-flash-lite"
 ];
 
 /** GET /api/settings — returns all settings (keys only, values masked for API keys) */
@@ -69,7 +72,28 @@ export async function POST(request: NextRequest) {
     const platform = s.ai_platform || "anthropic";
 
     if (type === "text") {
-      if (platform === "anthropic") {
+      if (platform === "gemini") {
+        const key = s.google_ai_key;
+        if (!key) return NextResponse.json({ ok: false, error: "No Google AI key saved" });
+
+        const model = s.gemini_pro_model || "gemini-2.5-pro-latest";
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: "Reply with exactly: TEST_OK" }] }],
+              generationConfig: { maxOutputTokens: 32 },
+            }),
+          }
+        );
+        const data = await res.json() as { candidates?: { content: { parts: { text: string }[] } }[]; error?: { message: string } };
+        if (!res.ok) return NextResponse.json({ ok: false, error: data.error?.message || "API error" });
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        return NextResponse.json({ ok: true, response: text.trim(), model, platform });
+
+      } else if (platform === "anthropic") {
         const key = s.anthropic_api_key;
         if (!key) return NextResponse.json({ ok: false, error: "No Anthropic API key saved" });
 
@@ -94,6 +118,7 @@ export async function POST(request: NextRequest) {
 
       } else {
         // OpenAI
+
         const key = s.openai_api_key;
         if (!key) return NextResponse.json({ ok: false, error: "No OpenAI API key saved" });
 

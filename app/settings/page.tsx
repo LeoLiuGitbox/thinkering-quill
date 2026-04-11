@@ -6,11 +6,12 @@ import GameNav from "@/components/layout/GameNav";
 
 interface Settings {
   ai_platform?: string;
-  anthropic_api_key?: string;
   openai_api_key?: string;
-  anthropic_model?: string;
+  google_ai_key?: string;
   openai_text_model?: string;
   openai_image_model?: string;
+  gemini_pro_model?: string;
+  gemini_flash_model?: string;
 }
 
 type TestResult = {
@@ -19,29 +20,35 @@ type TestResult = {
   imageUrl?: string;
 };
 
-const ANTHROPIC_MODELS = [
-  "claude-sonnet-4-5",
-  "claude-opus-4-5",
-  "claude-haiku-3-5",
-  "claude-3-5-sonnet-20241022",
-];
-
 const OPENAI_TEXT_MODELS = [
   "gpt-4o",
   "gpt-4o-mini",
   "gpt-4-turbo",
 ];
 
+const GEMINI_PRO_MODELS = [
+  "gemini-2.5-pro-latest",
+  "gemini-pro-latest",
+  "gemini-1.5-pro-latest",
+];
+
+const GEMINI_FLASH_MODELS = [
+  "gemini-2.0-flash-lite",
+  "gemini-flash-lite-latest",
+  "gemini-1.5-flash-latest",
+];
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>({});
-  const [platform, setPlatform] = useState<"anthropic" | "openai">("anthropic");
-  const [anthropicKey, setAnthropicKey] = useState("");
+  const [platform, setPlatform] = useState<"openai" | "gemini">("gemini");
   const [openaiKey, setOpenaiKey] = useState("");
-  const [anthropicModel, setAnthropicModel] = useState("claude-sonnet-4-5");
   const [openaiTextModel, setOpenaiTextModel] = useState("gpt-4o");
+  const [googleKey, setGoogleKey] = useState("");
+  const [showGoogleKey, setShowGoogleKey] = useState(false);
+  const [geminiProModel, setGeminiProModel] = useState("gemini-2.5-pro-latest");
+  const [geminiFlashModel, setGeminiFlashModel] = useState("gemini-2.0-flash-lite");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [showAnthropicKey, setShowAnthropicKey] = useState(false);
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [textTest, setTextTest] = useState<TestResult>({ status: "idle" });
   const [imageTest, setImageTest] = useState<TestResult>({ status: "idle" });
@@ -53,9 +60,10 @@ export default function SettingsPage() {
       .then(d => {
         const s: Settings = d.settings || {};
         setSettings(s);
-        if (s.ai_platform) setPlatform(s.ai_platform as "anthropic" | "openai");
-        if (s.anthropic_model) setAnthropicModel(s.anthropic_model);
+        if (s.ai_platform && s.ai_platform !== "anthropic") setPlatform(s.ai_platform as "openai" | "gemini");
         if (s.openai_text_model) setOpenaiTextModel(s.openai_text_model);
+        if (s.gemini_pro_model) setGeminiProModel(s.gemini_pro_model);
+        if (s.gemini_flash_model) setGeminiFlashModel(s.gemini_flash_model);
         // Show masked key as placeholder — user must retype to change
         setLoading(false);
       })
@@ -68,15 +76,16 @@ export default function SettingsPage() {
     try {
       const body: Record<string, string> = {
         ai_platform: platform,
-        anthropic_model: anthropicModel,
         openai_text_model: openaiTextModel,
         openai_image_model: "dall-e-3",
+        gemini_pro_model: geminiProModel,
+        gemini_flash_model: geminiFlashModel,
       };
-      if (anthropicKey.trim() && !anthropicKey.includes("…")) {
-        body.anthropic_api_key = anthropicKey.trim();
-      }
       if (openaiKey.trim() && !openaiKey.includes("…")) {
         body.openai_api_key = openaiKey.trim();
+      }
+      if (googleKey.trim() && !googleKey.includes("…")) {
+        body.google_ai_key = googleKey.trim();
       }
 
       await fetch("/api/settings", {
@@ -160,8 +169,8 @@ export default function SettingsPage() {
           <h2 className="font-bold mb-4" style={{ color: "#E7C777" }}>AI Platform</h2>
           <div className="grid grid-cols-2 gap-3">
             {([
-              { id: "anthropic", label: "Anthropic Claude", icon: "🤖", desc: "Best for structured question generation" },
               { id: "openai", label: "OpenAI GPT", icon: "🧠", desc: "Single key for text + images" },
+              { id: "gemini", label: "Google Gemini", icon: "✨", desc: "Flash + Pro split model" },
             ] as const).map(opt => (
               <button
                 key={opt.id}
@@ -184,53 +193,8 @@ export default function SettingsPage() {
             ))}
           </div>
           <p className="text-xs mt-3" style={{ color: "#EADFC8", opacity: 0.5 }}>
-            Note: DALL-E image generation always requires an OpenAI key regardless of platform choice.
+            Note: DALL-E image generation always requires an OpenAI key.
           </p>
-        </div>
-
-        {/* Anthropic settings */}
-        <div className="rounded-xl p-6 mb-5 border" style={{ background: "#1E2E5A", borderColor: "#B68A3A44" }}>
-          <h2 className="font-bold mb-4" style={{ color: "#E7C777" }}>🤖 Anthropic Claude</h2>
-
-          <div className="mb-4">
-            <label className="block text-xs mb-1.5" style={{ color: "#B68A3A" }}>API Key</label>
-            <div className="flex gap-2">
-              <input
-                type={showAnthropicKey ? "text" : "password"}
-                value={anthropicKey}
-                onChange={e => setAnthropicKey(e.target.value)}
-                placeholder={settings.anthropic_api_key || "sk-ant-api03-…"}
-                className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
-                style={{ background: "#0F1C3F", border: "1px solid #B68A3A44", color: "#EADFC8" }}
-              />
-              <button
-                onClick={() => setShowAnthropicKey(v => !v)}
-                className="px-3 py-2 rounded-lg text-xs"
-                style={{ background: "#0F1C3F", border: "1px solid #B68A3A44", color: "#B68A3A" }}
-              >
-                {showAnthropicKey ? "Hide" : "Show"}
-              </button>
-            </div>
-            {settings.anthropic_api_key && (
-              <p className="text-xs mt-1" style={{ color: "#22c55e" }}>
-                ✓ Key saved ({settings.anthropic_api_key})
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs mb-1.5" style={{ color: "#B68A3A" }}>Model</label>
-            <select
-              value={anthropicModel}
-              onChange={e => setAnthropicModel(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-              style={{ background: "#0F1C3F", border: "1px solid #B68A3A44", color: "#EADFC8" }}
-            >
-              {ANTHROPIC_MODELS.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-          </div>
         </div>
 
         {/* OpenAI settings */}
@@ -277,6 +241,66 @@ export default function SettingsPage() {
                 <option key={m} value={m}>{m}</option>
               ))}
             </select>
+          </div>
+        </div>
+
+        {/* Gemini settings */}
+        <div className="rounded-xl p-6 mb-5 border" style={{ background: "#1E2E5A", borderColor: "#B68A3A44" }}>
+          <h2 className="font-bold mb-4" style={{ color: "#E7C777" }}>✨ Google Gemini</h2>
+
+          <div className="mb-4">
+            <label className="block text-xs mb-1.5" style={{ color: "#B68A3A" }}>API Key (GOOGLE_AI_KEY)</label>
+            <div className="flex gap-2">
+              <input
+                type={showGoogleKey ? "text" : "password"}
+                value={googleKey}
+                onChange={e => setGoogleKey(e.target.value)}
+                placeholder={settings.google_ai_key || "AIzaSy…"}
+                className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+                style={{ background: "#0F1C3F", border: "1px solid #B68A3A44", color: "#EADFC8" }}
+              />
+              <button
+                onClick={() => setShowGoogleKey(v => !v)}
+                className="px-3 py-2 rounded-lg text-xs"
+                style={{ background: "#0F1C3F", border: "1px solid #B68A3A44", color: "#B68A3A" }}
+              >
+                {showGoogleKey ? "Hide" : "Show"}
+              </button>
+            </div>
+            {settings.google_ai_key && (
+              <p className="text-xs mt-1" style={{ color: "#22c55e" }}>
+                ✓ Key saved ({settings.google_ai_key})
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs mb-1.5" style={{ color: "#B68A3A" }}>Pro Model <span style={{ opacity: 0.6 }}>(question gen)</span></label>
+              <select
+                value={geminiProModel}
+                onChange={e => setGeminiProModel(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{ background: "#0F1C3F", border: "1px solid #B68A3A44", color: "#EADFC8" }}
+              >
+                {GEMINI_PRO_MODELS.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs mb-1.5" style={{ color: "#B68A3A" }}>Flash Model <span style={{ opacity: 0.6 }}>(hints, oracle)</span></label>
+              <select
+                value={geminiFlashModel}
+                onChange={e => setGeminiFlashModel(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{ background: "#0F1C3F", border: "1px solid #B68A3A44", color: "#EADFC8" }}
+              >
+                {GEMINI_FLASH_MODELS.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
