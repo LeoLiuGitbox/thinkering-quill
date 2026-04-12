@@ -17,6 +17,7 @@ type LessonPayload = {
   taskPrompt: string;
   revisionGoal: string;
   suggestedTimeMinutes: number;
+  scaffoldNotes?: string[];
 };
 
 export async function POST(request: NextRequest) {

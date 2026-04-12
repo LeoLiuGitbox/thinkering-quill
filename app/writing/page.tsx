@@ -22,7 +22,13 @@ type SkillCode =
   | "paragraph_expansion"
   | "sensory_detail"
   | "sentence_variety"
-  | "prompt_interpretation";
+  | "prompt_interpretation"
+  | "word_choice"
+  | "dialogue"
+  | "idea_generation"
+  | "voice_and_tone"
+  | "narrative_structure"
+  | "main_event";
 
 type LessonPayload = {
   title: string;
@@ -33,6 +39,7 @@ type LessonPayload = {
   taskPrompt: string;
   revisionGoal: string;
   suggestedTimeMinutes: number;
+  scaffoldNotes?: string[];
 };
 
 type ScenePayload = {
@@ -59,38 +66,43 @@ type WritingCoachingFeedback = {
 
 const FULL_TASK_TIMER_SECONDS = 25 * 60;
 
-const SKILL_OPTIONS: { code: SkillCode; label: string; summary: string }[] = [
+type SkillGroup = {
+  group: string;
+  skills: { code: SkillCode; label: string; summary: string; guidedOnly?: boolean }[];
+};
+
+const SKILL_GROUPS: SkillGroup[] = [
   {
-    code: "show_not_tell",
-    label: "Show, Not Tell",
-    summary: "Turn flat statements into vivid action and detail.",
+    group: "Craft",
+    skills: [
+      { code: "show_not_tell", label: "Show, Not Tell", summary: "Turn flat statements into vivid action and detail." },
+      { code: "sensory_detail", label: "Sensory Detail", summary: "Use sight, sound, touch, and atmosphere with purpose." },
+      { code: "word_choice", label: "Word Choice", summary: "Replace weak words with precise, expressive ones." },
+      { code: "sentence_variety", label: "Sentence Variety", summary: "Make the writing flow with stronger rhythm and contrast." },
+      { code: "dialogue", label: "Dialogue", summary: "Write dialogue that reveals character or moves the plot." },
+    ],
   },
   {
-    code: "opening_hook",
-    label: "Opening Hook",
-    summary: "Create curiosity quickly and cleanly.",
+    group: "Structure",
+    skills: [
+      { code: "opening_hook", label: "Opening Hook", summary: "Create curiosity quickly and cleanly." },
+      { code: "paragraph_expansion", label: "Paragraph Expansion", summary: "Stretch one idea into a stronger scene or moment." },
+      { code: "narrative_structure", label: "Narrative Structure", summary: "Plan a clear 4–5 paragraph arc within the time limit.", guidedOnly: true },
+      { code: "main_event", label: "Main Event (Climax)", summary: "Develop one clear, unforgettable story moment.", guidedOnly: true },
+    ],
   },
   {
-    code: "paragraph_expansion",
-    label: "Paragraph Expansion",
-    summary: "Stretch one idea into a stronger scene or moment.",
-  },
-  {
-    code: "sensory_detail",
-    label: "Sensory Detail",
-    summary: "Use sight, sound, touch, and atmosphere with purpose.",
-  },
-  {
-    code: "sentence_variety",
-    label: "Sentence Variety",
-    summary: "Make the writing flow with stronger rhythm and contrast.",
-  },
-  {
-    code: "prompt_interpretation",
-    label: "Prompt Interpretation",
-    summary: "Choose a strong angle and stay on track.",
+    group: "Planning",
+    skills: [
+      { code: "prompt_interpretation", label: "Prompt Interpretation", summary: "Choose a strong angle and stay on track." },
+      { code: "idea_generation", label: "Fresh Ideas", summary: "Find a surprising, original angle that avoids the obvious." },
+      { code: "voice_and_tone", label: "Voice & Tone", summary: "Keep a consistent narrator voice and emotional register.", guidedOnly: true },
+    ],
   },
 ];
+
+// Flat list for backward-compatible skill lookup
+const SKILL_OPTIONS = SKILL_GROUPS.flatMap((g) => g.skills);
 
 function getWordCount(text: string) {
   return text.trim().split(/\s+/).filter(Boolean).length;
@@ -398,41 +410,62 @@ export default function WritingPage() {
 
           <section className="mb-8">
             <h2
-              className="text-sm uppercase tracking-[0.3em] mb-4"
+              className="text-sm uppercase tracking-[0.3em] mb-5"
               style={{ color: "#B68A3A" }}
             >
               Choose a Writing Skill
             </h2>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {SKILL_OPTIONS.map((skill) => {
-                const isActive = selectedSkill === skill.code;
-                return (
-                  <button
-                    key={skill.code}
-                    onClick={() => setSelectedSkill(skill.code)}
-                    className="rounded-2xl p-4 text-left transition-all hover:scale-[1.01]"
-                    style={{
-                      background: isActive ? "#24386A" : "#1A2545",
-                      border: `1px solid ${isActive ? "#E7C777" : "#B68A3A33"}`,
-                    }}
-                  >
-                    <p className="font-bold mb-1" style={{ color: "#E7C777" }}>
-                      {skill.label}
-                    </p>
-                    <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.78 }}>
-                      {skill.summary}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
+            {SKILL_GROUPS.map((group) => (
+              <div key={group.group} className="mb-6">
+                <p
+                  className="text-xs uppercase tracking-[0.22em] mb-3"
+                  style={{ color: "#B68A3A", opacity: 0.7 }}
+                >
+                  {group.group}
+                </p>
+                <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
+                  {group.skills.map((skill) => {
+                    const isActive = selectedSkill === skill.code;
+                    return (
+                      <button
+                        key={skill.code}
+                        onClick={() => setSelectedSkill(skill.code)}
+                        className="rounded-2xl p-4 text-left transition-all hover:scale-[1.01]"
+                        style={{
+                          background: isActive ? "#24386A" : "#1A2545",
+                          border: `1px solid ${isActive ? "#E7C777" : "#B68A3A33"}`,
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="font-bold" style={{ color: "#E7C777" }}>
+                            {skill.label}
+                          </p>
+                          {skill.guidedOnly && (
+                            <span
+                              className="flex-shrink-0 text-xs px-1.5 py-0.5 rounded-full"
+                              style={{ background: "#1E2E5A", color: "#7EB8E8", border: "1px solid #2E5A8E" }}
+                            >
+                              Guided
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.78 }}>
+                          {skill.summary}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </section>
 
           <section className="grid gap-5 lg:grid-cols-3">
             <button
               onClick={() => void startCoachingMode("micro_skill_drill")}
-              disabled={loading}
-              className="rounded-3xl p-6 text-left transition-all hover:scale-[1.015] disabled:opacity-50"
+              disabled={loading || !!SKILL_OPTIONS.find((s) => s.code === selectedSkill)?.guidedOnly}
+              title={SKILL_OPTIONS.find((s) => s.code === selectedSkill)?.guidedOnly ? "This skill is only available in Guided Writing" : undefined}
+              className="rounded-3xl p-6 text-left transition-all hover:scale-[1.015] disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: "#1A2545", border: "1px solid #B68A3A33" }}
             >
               <div className="text-3xl mb-4">✨</div>
@@ -537,6 +570,30 @@ export default function WritingPage() {
             </div>
           </div>
 
+          {selectedMode === "guided_writing" && lessonData.scaffoldNotes && lessonData.scaffoldNotes.length > 0 && (
+            <div
+              className="rounded-2xl p-5 mb-6"
+              style={{ background: "#1A2840", border: "1px solid #2E5A8E" }}
+            >
+              <p className="text-sm font-bold mb-3" style={{ color: "#7EB8E8" }}>
+                Planning Frame
+              </p>
+              <ol className="space-y-2">
+                {lessonData.scaffoldNotes.map((step, i) => (
+                  <li key={i} className="flex gap-3 text-sm" style={{ color: "#EADFC8" }}>
+                    <span
+                      className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
+                      style={{ background: "#2E5A8E", color: "#EADFC8" }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span style={{ fontFamily: "Georgia, serif" }}>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
           <div
             className="rounded-2xl p-5 mb-6"
             style={{ background: "#1E2E5A", border: "1px solid #B68A3A44" }}
@@ -584,13 +641,37 @@ export default function WritingPage() {
           {renderError()}
           <div className="mb-5">
             <p className="text-xs uppercase tracking-[0.25em] mb-2" style={{ color: "#B68A3A" }}>
-              First Draft
+              {selectedMode === "guided_writing" ? "Guided Draft" : "First Draft"}
             </p>
             <h1 className="text-2xl font-bold mb-3" style={{ color: "#E7C777" }}>
               {lessonData.title}
             </h1>
             <p style={{ color: "#EADFC8", opacity: 0.82 }}>{lessonData.taskPrompt}</p>
           </div>
+
+          {selectedMode === "guided_writing" && lessonData.scaffoldNotes && lessonData.scaffoldNotes.length > 0 && (
+            <div
+              className="rounded-2xl p-4 mb-5"
+              style={{ background: "#1A2840", border: "1px solid #2E5A8E" }}
+            >
+              <p className="text-xs font-bold uppercase tracking-[0.2em] mb-2" style={{ color: "#7EB8E8" }}>
+                Planning Frame
+              </p>
+              <ol className="space-y-1.5">
+                {lessonData.scaffoldNotes.map((step, i) => (
+                  <li key={i} className="flex gap-2.5 text-sm" style={{ color: "#EADFC8", opacity: 0.88 }}>
+                    <span
+                      className="flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
+                      style={{ background: "#2E5A8E", color: "#EADFC8" }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span style={{ fontFamily: "Georgia, serif" }}>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
 
           <textarea
             value={draftText}
