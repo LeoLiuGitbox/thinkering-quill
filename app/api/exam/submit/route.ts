@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { checkAndAwardBadges } from "@/lib/badges";
 
 export async function POST(request: NextRequest) {
   try {
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
         ? (totalAllCorrect / totalAllQuestions) * 100
         : 0;
 
-      await prisma.examSession.update({
+      const examSession = await prisma.examSession.update({
         where: { id: sessionId },
         data: {
           status: "completed",
@@ -73,8 +74,14 @@ export async function POST(request: NextRequest) {
           totalSparks: totalAllCorrect * 10,
           maxSparks: totalAllQuestions * 10,
         },
+        select: { profileId: true },
       });
       completed = true;
+
+      // Award badges — fire-and-forget (don't block response)
+      checkAndAwardBadges(examSession.profileId, "exam").catch((err) =>
+        console.error("Badge check failed:", err)
+      );
     }
 
     return NextResponse.json({

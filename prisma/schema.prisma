@@ -100,7 +100,7 @@ model WritingSession {
   id               Int      @id @default(autoincrement())
   profileId        Int
   profile          Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  sessionMode      String   @default("full_task") // micro_skill_drill | guided_writing | full_task
+  sessionMode      String   @default("full_task") // micro_skill_drill | guided_writing | full_task — default is overridden by all create paths; remove when next migration runs
   targetSkill      String?
   promptText       String?
   outlineNotes     String?

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateMCQSparks } from "@/lib/rewards";
+import { checkAndAwardBadges } from "@/lib/badges";
 import { calculateMasteryScore, getMasteryLevel, getAttributeUpdate, EXPECTED_TIME_MS } from "@/lib/progression";
 import { detectIntegritySignal, getMinimumReadTimeMs, getAuraAlignment } from "@/lib/integrity";
 import { getRank } from "@/lib/progression";
@@ -157,6 +158,11 @@ export async function POST(request: NextRequest) {
         },
       });
     }
+
+    // Award badges — fire-and-forget
+    checkAndAwardBadges(profileId, "quest").catch((err) =>
+      console.error("Badge check failed:", err)
+    );
 
     // Check for integrity signals
     const computedMinReadTime = minimumReadTimeMs || getMinimumReadTimeMs(questionText, "");

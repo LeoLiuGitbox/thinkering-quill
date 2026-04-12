@@ -10,6 +10,7 @@ import {
   calculateWritingRevisionSparks,
 } from "@/lib/rewards";
 import { getRank } from "@/lib/progression";
+import { checkAndAwardBadges } from "@/lib/badges";
 
 type WritingMode = "micro_skill_drill" | "guided_writing";
 type DraftStage = "draft_v1" | "draft_v2";
@@ -123,6 +124,11 @@ export async function POST(request: NextRequest) {
         attrCraft: { increment: 1 },
       },
     });
+
+    // Award badges — fire-and-forget
+    checkAndAwardBadges(profileId, "writing").catch((err) =>
+      console.error("Badge check failed:", err)
+    );
 
     return NextResponse.json({
       completed: true,

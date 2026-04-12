@@ -91,6 +91,50 @@ const WRITING_SKILL_GUIDANCE: Record<
       "Time allocation: 25% plan / 60% write / 15% review — persuasive writing needs more planning time than narrative.",
     ],
   },
+  idea_generation: {
+    label: "Fresh Ideas",
+    focus: "Avoid the obvious angle — find a specific, surprising idea that will make your writing stand out.",
+    examples: [
+      "Avoid the 3 most obvious interpretations: if the prompt is 'a storm', don't write about rain ruining a picnic or a thunderstorm at night. Ask: what's the angle no one else will take?",
+      "'What would surprise the reader?' test: choose an idea that is unexpected but still makes sense for the prompt.",
+      "Concrete beats vague: a small specific idea (a boy who repairs clocks for a living discovers one clock that runs backwards) beats a big fuzzy idea ('a magical adventure').",
+      "One strong angle rule: lock in ONE idea before you write. Trying to merge two ideas mid-story creates confusion for the reader and the writer.",
+      "ASET markers reward complexity, freshness, and originality of ideas — this is one of the 7 marking dimensions.",
+    ],
+  },
+  voice_and_tone: {
+    label: "Voice & Tone",
+    focus: "Maintain a consistent narrator voice and emotional register throughout your piece.",
+    examples: [
+      "Choose your narrator position before you write and keep it: first person ('I') for closeness, third person close ('She felt…') for flexibility — don't switch.",
+      "Your tone should match your story's mood. If your opening is tense and serious, don't drop into comedy mid-paragraph unless it's intentional.",
+      "Avoid over-formal language in dialogue or thought ('She cogitated upon the matter') — keep it natural for a 10-year-old narrator's voice.",
+      "Read your writing aloud: if it sounds like a different person wrote each paragraph, your voice has drifted.",
+      "ASET markers look for 'distinctiveness of voice and tone' as a separate criterion — a consistent, clear voice is rewarded.",
+    ],
+  },
+  word_choice: {
+    label: "Word Choice",
+    focus: "Replace weak or repeated words with precise, expressive alternatives that do more work.",
+    examples: [
+      "Strong verbs beat adverbs: 'sprinted', 'crept', 'lunged' beat 'ran quickly', 'walked slowly', 'moved fast'.",
+      "Specific nouns beat generic ones: 'labrador', 'cello', 'sandstone wall' create a sharper image than 'dog', 'instrument', 'wall'.",
+      "Avoid repeating the same word in a paragraph — if you've used 'dark' once, try 'shadowed', 'dim', 'murky' next time.",
+      "Cut filler words: 'very', 'really', 'quite', 'suddenly' often weaken a sentence. Remove them and see if the sentence is stronger.",
+      "ASET rewards 'appropriateness, expressiveness, and fluency of language' — precise word choices are the fastest way to improve this score.",
+    ],
+  },
+  dialogue: {
+    label: "Dialogue",
+    focus: "Write dialogue that reveals character or advances the plot — not just conversation for its own sake.",
+    examples: [
+      "Every line of dialogue should do at least one job: reveal character, move the plot forward, or create tension. If it does none of these, cut it.",
+      "Less is more: one strong exchange of 2–4 lines beats a page of conversation. Examiners mark writing quality, not word count.",
+      "Format rules: start a new paragraph for each speaker; put punctuation inside the closing quotation mark; use a dialogue tag or action beat on the same line.",
+      "Show character through HOW they speak, not what they say: short snappy replies vs. long winding sentences tells us more than the actual words.",
+      "Avoid dialogue tags like 'exclaimed happily' or 'shouted angrily' — the words themselves should convey the emotion.",
+    ],
+  },
 };
 
 function getSkillGuidance(skillCode: string) {
@@ -151,7 +195,8 @@ Return:
   "weakExample": "A weak example",
   "taskPrompt": "The student's short writing task",
   "revisionGoal": "What the student should try to improve when revising",
-  "suggestedTimeMinutes": 8
+  "suggestedTimeMinutes": 8,
+  "scaffoldNotes": []
 }`;
 }
 
@@ -165,6 +210,17 @@ export function buildWritingSkillLessonUserPrompt(params: {
       ? "guided writing"
       : "micro skill drill";
 
+  const scaffoldInstruction =
+    params.mode === "guided_writing"
+      ? `
+SCAFFOLD NOTES (required for guided writing):
+Set "scaffoldNotes" to an array of 3–4 short planning steps the student should follow BEFORE writing.
+Each step should be one sentence starting with an action verb (e.g. "Choose...", "Write...", "Decide...").
+These steps guide the student through planning their paragraph or section, not just the skill itself.
+Example format: ["Decide on the emotion or tone you want to create.", "Choose one moment that shows this — not a summary, one scene.", "Write a topic sentence that sets up the moment.", "Expand with two or three details using this skill."]`
+      : `
+Set "scaffoldNotes" to an empty array [].`;
+
   return `Create a ${modeLabel} lesson for the skill "${guidance.label}".
 
 SKILL FOCUS:
@@ -172,6 +228,7 @@ ${guidance.focus}
 
 HELPFUL NOTES:
 - ${guidance.examples.join("\n- ")}
+${scaffoldInstruction}
 
 Return the JSON in the required format only.`;
 }
