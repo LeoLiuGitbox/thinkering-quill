@@ -53,7 +53,7 @@ export async function chat(
   });
 }
 
-// ─── chatPro — Flash Latest (complex structured output) ──────────────────────
+// ─── chatPro — Gemini Pro (kept for future use / fallback) ───────────────────
 
 export async function chatPro(
   system: string,
@@ -62,6 +62,25 @@ export async function chatPro(
 ): Promise<string> {
   return withRetry(async () => {
     const result = await proModel.generateContent({
+      systemInstruction: system,
+      contents: [{ role: "user", parts: [{ text: user }] }],
+      generationConfig: { maxOutputTokens: maxTokens },
+    });
+    return result.response.text();
+  });
+}
+
+// ─── chatFlash — Flash Latest (fast structured output for question generation)
+
+const flashLatestModel = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+
+export async function chatFlash(
+  system: string,
+  user: string,
+  maxTokens = 8192
+): Promise<string> {
+  return withRetry(async () => {
+    const result = await flashLatestModel.generateContent({
       systemInstruction: system,
       contents: [{ role: "user", parts: [{ text: user }] }],
       generationConfig: { maxOutputTokens: maxTokens },

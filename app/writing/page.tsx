@@ -23,12 +23,20 @@ type SkillCode =
   | "sensory_detail"
   | "sentence_variety"
   | "prompt_interpretation"
+  // Narrative skills
   | "word_choice"
   | "dialogue"
   | "idea_generation"
   | "voice_and_tone"
   | "narrative_structure"
-  | "main_event";
+  | "main_event"
+  // Persuasive / writing craft skills (ExamSuccess WR domain)
+  | "persuasive_structure"
+  | "teel_framework"
+  | "argument_dimensions"
+  | "counter_argument"
+  | "writing_time_plan"
+  | "prompt_analysis";
 
 type LessonPayload = {
   title: string;
@@ -98,6 +106,48 @@ const SKILL_GROUPS: SkillGroup[] = [
       { code: "idea_generation", label: "Fresh Ideas", summary: "Find a surprising, original angle that avoids the obvious." },
       { code: "voice_and_tone", label: "Voice & Tone", summary: "Keep a consistent narrator voice and emotional register.", guidedOnly: true },
     ],
+  },
+  // Narrative skills
+  {
+    code: "narrative_structure",
+    label: "Narrative Structure",
+    summary: "Plan a clear 4–5 paragraph story arc within the time limit.",
+  },
+  {
+    code: "main_event",
+    label: "Main Event (Climax)",
+    summary: "Develop one clear climax — the single moment everything leads to.",
+  },
+  // Persuasive / writing craft skills
+  {
+    code: "persuasive_structure",
+    label: "Persuasive Writing",
+    summary: "Write a persuasive or discussion piece using TEEL structure.",
+  },
+  {
+    code: "teel_framework",
+    label: "TEEL Paragraph",
+    summary: "Write one argument using Topic, Explanation, Evidence, Link.",
+  },
+  {
+    code: "argument_dimensions",
+    label: "3-Dimension Arguments",
+    summary: "Generate strong arguments across Individual, Social, and Broader.",
+  },
+  {
+    code: "counter_argument",
+    label: "Counter-Argument",
+    summary: "Acknowledge the opposing view and rebut it in 2 sentences.",
+  },
+  {
+    code: "writing_time_plan",
+    label: "Time Management",
+    summary: "Use the 25–60–15 rule to plan, write, and review on time.",
+  },
+  {
+    code: "prompt_analysis",
+    label: "Prompt Analysis",
+    summary: "Break down any prompt in 4 steps before you write.",
   },
 ];
 

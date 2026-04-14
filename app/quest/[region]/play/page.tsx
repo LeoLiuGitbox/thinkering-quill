@@ -21,6 +21,10 @@ interface Question {
   type?: string;
   gridData?: any[][];
   options_ar?: any[];
+  // Static AR (paper folding)
+  staticSvg?: string;
+  optionSvgs?: [string, string, string, string];
+  isStatic?: boolean;
 }
 
 interface QuestionState {
@@ -124,55 +128,8 @@ export default function QuestPlayPage() {
         };
       });
 
-      // Phase 2: Pre-generate all hints in parallel
-      setLoadingStatus(`Inscribing hint scrolls… (0 / ${rawQs.length * 2})`);
-      let hintsReady = 0;
-      const totalHints = rawQs.length * 2;
-
-      const hintResults: { hint1: string; hint2: string }[] = await Promise.all(
-        rawQs.map(async (q, idx) => {
-          const body = {
-            questionText: q.questionText,
-            options: q.options || [],
-            knowledgePointName: q.knowledgePointCode,
-            isAbstractReasoning: isAR,
-            wrongOption: (q.options as string[])?.[3] || "",
-          };
-
-          const [r1, r2] = await Promise.all([
-            fetch("/api/hint", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ ...body, hintLevel: 1 }),
-            }).then(r => r.json()).then(d => {
-              hintsReady++;
-              setLoadingStatus(`Inscribing hint scrolls… (${hintsReady} / ${totalHints})`);
-              return d.hint as string;
-            }).catch(() => ""),
-
-            fetch("/api/hint", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ ...body, hintLevel: 2 }),
-            }).then(r => r.json()).then(d => {
-              hintsReady++;
-              setLoadingStatus(`Inscribing hint scrolls… (${hintsReady} / ${totalHints})`);
-              return d.hint as string;
-            }).catch(() => ""),
-          ]);
-
-          return { hint1: r1, hint2: r2 };
-        })
-      );
-
-      // Merge hints into question states
-      const statesWithHints = states.map((s, i) => ({
-        ...s,
-        hint1: hintResults[i]?.hint1 || "",
-        hint2: hintResults[i]?.hint2 || "",
-      }));
-
-      // Phase 3: Write challenge log in background (fire-and-forget)
+      // Phase 2: Write challenge log in background (fire-and-forget)
+      const statesWithHints = states;
       const profileName = profileData.profile?.mageName || `Profile ${profileId}`;
       const logQuestions = statesWithHints.map((s, i) => ({
         idx: i,
@@ -289,23 +246,59 @@ export default function QuestPlayPage() {
     setQuestions(updated);
   }
 
-  function loadHint(level: 1 | 2) {
+  async function loadHint(level: 1 | 2) {
     const updated = [...questions];
     const q = updated[currentIdx];
-    if (level === 1) {
-      updated[currentIdx] = {
-        ...q,
-        showHint1: true,
-        hintsUsed: q.showHint1 ? q.hintsUsed : q.hintsUsed + 1,
-      };
-    } else {
-      updated[currentIdx] = {
-        ...q,
-        showHint2: true,
-        hintsUsed: q.showHint2 ? q.hintsUsed : q.hintsUsed + 1,
-      };
+    const alreadyShown = level === 1 ? q.showHint1 : q.showHint2;
+    const alreadyFetched = level === 1 ? q.hint1 : q.hint2;
+
+    // Toggle visibility if already fetched
+    if (alreadyShown || alreadyFetched) {
+      updated[currentIdx] = level === 1
+        ? { ...q, showHint1: true }
+        : { ...q, showHint2: true };
+      setQuestions(updated);
+      return;
     }
+
+    // Mark as loading and show
+    updated[currentIdx] = level === 1
+      ? { ...q, showHint1: true, hint1: "✦ Consulting the Archive…", hintsUsed: q.hintsUsed + 1 }
+      : { ...q, showHint2: true, hint2: "✦ Consulting the Archive…", hintsUsed: q.hintsUsed + 1 };
     setQuestions(updated);
+
+    try {
+      const isAR = region === "Forest of Patterns";
+      const res = await fetch("/api/hint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questionText: q.question.questionText,
+          options: q.question.options || [],
+          knowledgePointName: q.question.knowledgePointCode,
+          isAbstractReasoning: isAR,
+          wrongOption: (q.question.options as string[])?.[3] || "",
+          hintLevel: level,
+        }),
+      });
+      const data = await res.json();
+      const hint = data.hint as string || "";
+      setQuestions(prev => {
+        const next = [...prev];
+        next[currentIdx] = level === 1
+          ? { ...next[currentIdx], hint1: hint }
+          : { ...next[currentIdx], hint2: hint };
+        return next;
+      });
+    } catch {
+      setQuestions(prev => {
+        const next = [...prev];
+        next[currentIdx] = level === 1
+          ? { ...next[currentIdx], hint1: "Hint scroll unavailable." }
+          : { ...next[currentIdx], hint2: "Hint scroll unavailable." };
+        return next;
+      });
+    }
   }
 
   async function submitSession() {
@@ -790,12 +783,20 @@ export default function QuestPlayPage() {
                 {current.question.questionText}
               </p>
 
-              {/* AR Grid */}
-              {isAR && current.question.gridData && (
+              {/* AR Grid — static paper folding */}
+              {isAR && current.question.isStatic && current.question.staticSvg && (
+                <div
+                  className="mb-6 overflow-x-auto"
+                  dangerouslySetInnerHTML={{ __html: current.question.staticSvg }}
+                />
+              )}
+
+              {/* AR Grid — generated SVG cells */}
+              {isAR && !current.question.isStatic && current.question.gridData && (
                 <div className="mb-6">
                   <ARGridView
                     gridData={current.question.gridData}
-                    type={(current.question.type || "sequence") as "sequence" | "pattern" | "odd_one_out"}
+                    type={(current.question.type || "sequence") as "sequence" | "pattern" | "odd_one_out" | "analogy"}
                   />
                 </div>
               )}
@@ -811,8 +812,30 @@ export default function QuestPlayPage() {
 
               {optionsUnlocked && (
                 <div className="space-y-3">
-                  {isAR && current.question.options_ar ? (
-                    // AR options rendered as small grids
+                  {isAR && current.question.isStatic && current.question.optionSvgs ? (
+                    // Static AR options (paper folding)
+                    <div className="grid grid-cols-2 gap-3">
+                      {(current.question.optionSvgs as string[]).map((svg: string, i: number) => {
+                        const label = getOptionLabel(i);
+                        const isSelected = current.userAnswer === label;
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => selectAnswer(label)}
+                            className="p-3 rounded-xl transition-all hover:scale-[1.02]"
+                            style={{
+                              background: isSelected ? "#B68A3A22" : "#0F1C3F",
+                              border: `2px solid ${isSelected ? "#E7C777" : "#B68A3A44"}`,
+                            }}
+                          >
+                            <div className="text-xs mb-1" style={{ color: "#B68A3A" }}>{label}</div>
+                            <div dangerouslySetInnerHTML={{ __html: svg }} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : isAR && current.question.options_ar ? (
+                    // Generated AR options rendered as small grids
                     <div className="grid grid-cols-2 gap-3">
                       {(current.question.options_ar || []).map((cell: any, i: number) => {
                         const label = getOptionLabel(i);

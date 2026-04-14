@@ -59,7 +59,8 @@ export type KnowledgePointCode =
   | "AR-01" | "AR-02" | "AR-03" | "AR-04" | "AR-05" | "AR-06" | "AR-07" | "AR-08"
   | "AR-09" | "AR-10"
   // Reading Comprehension
-  | "RC-01" | "RC-02" | "RC-03" | "RC-04" | "RC-05" | "RC-06";
+  | "RC-01" | "RC-02" | "RC-03" | "RC-04" | "RC-05" | "RC-06"
+  | "RC-07" | "RC-08" | "RC-09";
 
 export interface KnowledgePoint {
   code: KnowledgePointCode;
@@ -107,6 +108,9 @@ export const RC_KNOWLEDGE_POINTS: KnowledgePoint[] = [
   { code: "RC-04", name: "Vocabulary in Context", description: "Word meanings from context", spellName: "Word Bind" },
   { code: "RC-05", name: "Text Structure & Organisation", description: "How the text is arranged", spellName: "Structure Sight" },
   { code: "RC-06", name: "Table / Diagram / Chart Comprehension", description: "Reading non-text information", spellName: "Visual Rune" },
+  { code: "RC-07", name: "Figurative Language & Tone", description: "Simile, metaphor, hyperbole, personification; mood and tone analysis", spellName: "Tone Weave" },
+  { code: "RC-08", name: "Sequence & Chronology", description: "Ordering events, cause-effect chains, what happened first/next/because", spellName: "Time Thread" },
+  { code: "RC-09", name: "Cartoon & Visual Literacy", description: "Symbolism, exaggeration, visual analogy, cartoonist perspective", spellName: "Symbol Eye" },
 ];
 
 export const ALL_KNOWLEDGE_POINTS = [
@@ -149,7 +153,7 @@ export interface MCQQuestion {
 }
 
 export interface ARQuestion {
-  type: "sequence" | "pattern" | "odd_one_out";
+  type: "sequence" | "pattern" | "odd_one_out" | "analogy";
   gridData: ARCell[][];
   questionText: string;
   options: ARCell[];         // 4 options for the answer
@@ -161,10 +165,11 @@ export interface ARQuestion {
 
 export interface ARCell {
   shape: "triangle" | "circle" | "square" | "pentagon" | "star" | "arrow" | "cross" | "empty";
-  rotation: 0 | 90 | 180 | 270;
+  rotation: 0 | 45 | 90 | 135 | 180 | 225 | 270 | 315;
   fill: "solid" | "outline" | "striped";
   size: "small" | "large";
-  count?: number;            // for multi-element cells
+  count?: number;            // for multi-element cells (AR-05)
+  position?: "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW" | "C"; // compass position (AR-06)
 }
 
 // ─── Session ──────────────────────────────────────────────────────────────────

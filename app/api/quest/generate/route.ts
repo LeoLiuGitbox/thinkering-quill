@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { chatPro as chat, parseJSON } from "@/lib/gemini";
+import { chatFlash as chat, parseJSON } from "@/lib/gemini";
 import { buildSessionAllocation } from "@/lib/session";
 import {
   buildQRSystemPrompt,
@@ -17,6 +17,7 @@ import {
   REGION_TO_SUBJECT,
   RC_KNOWLEDGE_POINTS,
 } from "@/types/game";
+import { PAPER_FOLDING_QUESTIONS } from "@/lib/staticQuestions/paperFolding";
 
 export async function POST(request: NextRequest) {
   try {
@@ -102,6 +103,16 @@ export async function POST(request: NextRequest) {
         }
         return question;
       });
+
+      // Inject 1 static paper folding question at Archmage difficulty
+      // (replaces a generated question to keep total count correct)
+      if (difficulty === "Archmage" && questions.length > 1) {
+        const staticQ = PAPER_FOLDING_QUESTIONS[
+          Math.floor(Math.random() * PAPER_FOLDING_QUESTIONS.length)
+        ];
+        // Replace the last question with the static one
+        questions = [...questions.slice(0, -1), staticQ];
+      }
     }
 
     // For RC, flatten passages → questions

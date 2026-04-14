@@ -135,6 +135,64 @@ const WRITING_SKILL_GUIDANCE: Record<
       "Avoid dialogue tags like 'exclaimed happily' or 'shouted angrily' — the words themselves should convey the emotion.",
     ],
   },
+  // ExamSuccess WR domain — persuasive writing framework
+  teel_framework: {
+    label: "TEEL Paragraph",
+    focus: "Write one argument paragraph using the 4-part TEEL structure.",
+    examples: [
+      "T — Topic/Claim: State the argument in one clear sentence.",
+      "E — Explanation: Explain WHY the claim is true — don't just restate it in different words.",
+      "E — Example/Evidence: Give one specific, directly related piece of evidence (historical, comparative, statistical, expert, personal, or hypothetical).",
+      "L — Link back: One sentence connecting back to your main stance.",
+      "Quality test for evidence: Is it relevant? Specific? Directly related? Distinct from the explanation?",
+      "Common mistake: restating the topic sentence as the explanation — if you could swap them, neither is doing its job.",
+    ],
+  },
+  argument_dimensions: {
+    label: "3-Dimension Arguments",
+    focus: "Generate strong, varied arguments using the Individual / Social / Broader framework.",
+    examples: [
+      "Individual dimension: How does this affect ONE person? (health, emotions, personal rights, finances)",
+      "Social/Community dimension: How does this affect groups, communities, or society as a whole?",
+      "Broader dimension: How does this affect the environment, economy, nation, or the wider world?",
+      "Strategy: Generate one argument per dimension first, then pick the TWO strongest for your essay — this gives you variety and avoids writing two arguments that are essentially the same idea.",
+      "Example topic 'school uniforms': Individual (saves families money), Social (reduces visible wealth gaps between students), Broader (textile industry impact on environment).",
+    ],
+  },
+  counter_argument: {
+    label: "Counter-Argument",
+    focus: "Acknowledge the opposing view and rebut it in exactly 2 sentences.",
+    examples: [
+      "Sentence 1: State the opposing argument FAIRLY — ('Some people argue that...' / 'Opponents claim that...').",
+      "Sentence 2: Directly rebut it with a reason ('However, this ignores...' / 'Despite this, evidence shows...' / 'While this may be true in some cases, ...').",
+      "Only include a counter-argument if you can rebut it strongly — a weak rebuttal is worse than no counter-argument at all.",
+      "Position in essay: after your two main TEEL arguments, before the conclusion.",
+    ],
+  },
+  writing_time_plan: {
+    label: "Time Management",
+    focus: "Use the 25–60–15 rule to plan, write, and review within the exam time limit.",
+    examples: [
+      "25% Plan: Choose arguments / story arc. Write one sentence per paragraph. If you can't summarise each paragraph in one sentence, your structure isn't clear yet.",
+      "60% Write: Execute your plan paragraph by paragraph — don't deviate from your plan mid-way.",
+      "15% Review: Check expression and word choice only. Do NOT rewrite whole paragraphs — you won't have time.",
+      "For a 25-min exam: ~6 min plan / ~15 min write / ~4 min review.",
+      "For a 30-min exam: ~7.5 min plan / ~18 min write / ~4.5 min review.",
+      "Planning rule: the plan must be done before you write word one of the essay — not during.",
+    ],
+  },
+  prompt_analysis: {
+    label: "Prompt Analysis",
+    focus: "Analyse any writing prompt in 4 steps before writing a single word.",
+    examples: [
+      "Step 1: Read the prompt carefully and circle the key words.",
+      "Step 2: Identify the question type — is it persuasive (argue one side) or discussion (explore both sides equally)?",
+      "Step 3: Rephrase the prompt in your own plain words.",
+      "Step 4: Verify your rephrasing matches the original — if they mean different things, reread.",
+      "For difficult/abstract prompts (e.g. proverbs like 'actions speak louder than words'): rephrase into a plain claim first ('What you do matters more than what you say'), then apply 3-Dimension framework.",
+      "For uncommon topics (AI, cloning, self-driving cars): use the 3-Dimension framework to generate arguments you already know — the topic is new but the framework still works.",
+    ],
+  },
 };
 
 function getSkillGuidance(skillCode: string) {

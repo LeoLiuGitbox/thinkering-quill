@@ -247,9 +247,12 @@ All questions are rendered as SVG grids — you output STRUCTURED DATA, not imag
 
 SHAPE VOCABULARY:
 - Shapes: "triangle" | "circle" | "square" | "pentagon" | "star" | "arrow" | "cross" | "empty"
-- Rotation: 0 | 90 | 180 | 270 (degrees clockwise)
+- Rotation: 0 | 45 | 90 | 135 | 180 | 225 | 270 | 315 (degrees clockwise)
 - Fill: "solid" | "outline" | "striped"
 - Size: "small" | "large"
+- Position (optional, AR-06 only): "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW" | "C"
+  Omit "position" entirely for all other KP types — it defaults to centre. Only include it when
+  position is the changing attribute being tested.
 
 QUESTION TYPES:
 1. "sequence" — a row of exactly 4 cells forming a sequence; student picks what comes 5th (the answer)
@@ -301,6 +304,18 @@ export function buildARBatchPrompt(params: {
 DIFFICULTY: ${difficulty}
 ${difficultyAttrRule}
 
+QUESTION TYPE DISTRIBUTION (strictly enforce across this batch):
+- "pattern" (3×3 matrix) must be ≥ 50% of questions — this is the dominant GATE/ASET format.
+- "sequence" ≤ 30% of questions.
+- "odd_one_out" + "analogy" combined ≤ 20% of questions.
+- Exception: if ALL KPs in this batch are AR-08, use "odd_one_out" exclusively.
+             If ALL KPs are AR-10, use "analogy" exclusively.
+
+3×3 PATTERN RULES (for all "pattern" type questions):
+- The rule must be discoverable by reading EACH ROW independently, then confirmed by column.
+- Do NOT use diagonal-only rules — they are visually ambiguous in a grid.
+- Preferred patterns: fill cycles left-to-right, rotation increments left-to-right, shape changes top-to-bottom.
+
 TOPIC ALLOCATION:
 ${topicList}
 
@@ -310,7 +325,7 @@ TOPIC NOTES:
 - AR-03 (Fill changes): Cycle through solid → striped → outline → solid, or solid ↔ outline.
 - AR-04 (Size changes): Alternate large/small, or shrink progressively.
 - AR-05 (Count changes): Number of shapes per cell increases or decreases by 1 each step.
-- AR-06 (Position changes): A shape moves between fixed positions within a cell grid (e.g., top-left → top-right → bottom-right).
+- AR-06 (Position changes): A shape moves between compass positions within a cell. Use the "position" field ("N","NE","E","SE","S","SW","W","NW","C"). Shape moves clockwise or anticlockwise by 1–2 compass steps per transition. ALWAYS include "position" in ALL gridData cells and ALL option cells for AR-06 questions. Do NOT use "position" in other question types.
 - AR-07 (Combination rules): "pattern" type. Cell in rightmost column = visual combination of left two columns' shapes.
 - AR-08 (Odd-one-out): "odd_one_out" type. Exactly 3 share a rule, 1 breaks it. Never 2-vs-2.
 - AR-09 (Multi-attribute): "sequence" or "pattern" type. Track 3 attributes simultaneously.
@@ -321,22 +336,21 @@ ${AR_KNOWLEDGE_POINT_NOTES}
 OUTPUT FORMAT — a JSON array of exactly ${totalCount} objects:
 [
   {
-    "type": "sequence",
-    "questionText": "What comes next in this sequence?",
+    "type": "pattern",
+    "questionText": "Which shape completes the grid?",
     "gridData": [
-      {"shape":"circle","rotation":0,"fill":"solid","size":"large"},
-      {"shape":"circle","rotation":90,"fill":"solid","size":"large"},
-      {"shape":"circle","rotation":180,"fill":"solid","size":"large"},
-      {"shape":"circle","rotation":270,"fill":"solid","size":"large"}
+      [{"shape":"circle","rotation":0,"fill":"solid","size":"large"},{"shape":"circle","rotation":90,"fill":"solid","size":"large"},{"shape":"circle","rotation":180,"fill":"solid","size":"large"}],
+      [{"shape":"square","rotation":0,"fill":"striped","size":"large"},{"shape":"square","rotation":90,"fill":"striped","size":"large"},{"shape":"square","rotation":180,"fill":"striped","size":"large"}],
+      [{"shape":"triangle","rotation":0,"fill":"outline","size":"large"},{"shape":"triangle","rotation":90,"fill":"outline","size":"large"},{"shape":"empty","rotation":0,"fill":"outline","size":"small"}]
     ],
     "options": [
-      {"shape":"circle","rotation":0,"fill":"solid","size":"large"},
-      {"shape":"circle","rotation":90,"fill":"outline","size":"large"},
-      {"shape":"square","rotation":0,"fill":"solid","size":"large"},
-      {"shape":"circle","rotation":270,"fill":"solid","size":"small"}
+      {"shape":"triangle","rotation":180,"fill":"outline","size":"large"},
+      {"shape":"triangle","rotation":180,"fill":"solid","size":"large"},
+      {"shape":"triangle","rotation":90,"fill":"outline","size":"large"},
+      {"shape":"circle","rotation":180,"fill":"outline","size":"large"}
     ],
     "correct": "A",
-    "explanation": "The circle rotates 90° clockwise each step. After 270°, it returns to 0°. Option B changes the fill incorrectly. Option C changes the shape. Option D changes the size.",
+    "explanation": "Each row uses one shape type. Within each row, rotation increases by 90° left-to-right (0°→90°→180°). Row 3 uses triangles with outline fill, so the missing cell is a triangle at 180° with outline fill. Option B has wrong fill. Option C has wrong rotation. Option D has wrong shape.",
     "knowledgePointCode": "AR-01",
     "estimatedReadTimeMs": 15000
   }
@@ -410,6 +424,35 @@ RC-06 TABLE/CHART — FORMAT RULE:
   | value    | value    | value    |
   The question for RC-06 must require the student to compare ≥2 rows or columns, not just read a single cell.
 
+RC-07 FIGURATIVE LANGUAGE & TONE:
+  Figurative language subtypes: simile (uses "as" or "like"), metaphor (says X "is" Y), hyperbole (deliberate
+  exaggeration for effect), personification (object or animal acts human), alliteration, onomatopoeia.
+  Tone analysis — use the "on-balance keyword approach": identify 3–4 mood-carrying words in the passage,
+  then determine the overall tone from their balance (e.g. mostly dark/tense words → ominous/foreboding tone).
+  Question formats: "What figure of speech is used in line X?", "What is the overall tone of this passage?",
+  "The phrase '...' is an example of which technique?"
+  Distractor design: offer two figurative language types that share surface features (e.g. metaphor vs.
+  personification — both say something "is" something else; student must check whether it's human behaviour).
+  Best paired with: narrative fiction, poetry, or historical passages.
+
+RC-08 SEQUENCE & CHRONOLOGY:
+  Question types: "What happened BEFORE X?", "Which event came FIRST in the story?",
+  "What CAUSED X to happen?", "What was the RESULT of Y?"
+  Use signal words in the passage: before, after, then, next, because, as a result, finally, previously, since.
+  Distractor design: list correct events in the wrong order; confuse cause with effect (swap cause and result).
+  Works across narrative text (plot order) and non-fiction (cause-effect chains in informational text).
+  At Archmage: ask about a non-linear narrative or a passage where events are told out of order.
+
+RC-09 CARTOON & VISUAL LITERACY:
+  Only applicable when passageType is "cartoon" — describe the cartoon scene in prose in passageText
+  (since no actual image is embedded). Include: what is drawn, labels, sizes, positioning, expressions.
+  Core techniques to test: symbolism (an object represents a bigger idea), exaggeration (size/proportion
+  conveys importance), labels (explicit text clarifies meaning), irony (gap between image and caption/reality).
+  Question formats: "What does the [object] in the cartoon represent?",
+  "What is the cartoonist's message about X?", "What technique does the cartoonist use to show Y?"
+  Distractor design: always include one "literal reading" option (what the image literally shows) vs. the
+  correct symbolic/ironic reading. Students who don't understand visual literacy will choose the literal option.
+
 DISTRACTOR DESIGN RULES (apply to ALL question types):
 - One wrong option must be a TRUE FACT from the passage — it is correct information but the wrong answer to this specific question (this catches students who find any matching text without checking the question)
 - One wrong option must be PLAUSIBLE but contradicted somewhere in the text
@@ -442,8 +485,11 @@ TARGET KNOWLEDGE POINTS: ${kpList}
 
 ${genreInstruction}
 
-Distribute questions across RC-01 through RC-06. EVERY passage must include exactly 1 RC-03 (inference) question.
+Distribute questions across RC-01 through RC-09. EVERY passage must include exactly 1 RC-03 (inference) question.
 Ensure RC-03 questions require genuine deduction — the answer must not appear verbatim in the passage.
+If the batch knowledge point mix includes RC-07, the passage must be narrative fiction or poetry.
+If the batch knowledge point mix includes RC-09, the passage must be of type "cartoon" (describe visually in prose).
+RC-08 (sequence/chronology) may appear in any text type that has a clear event order.
 
 OUTPUT FORMAT — a JSON array of ${passageCount} passage objects:
 [
