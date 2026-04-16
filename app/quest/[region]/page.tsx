@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import GameNav from "@/components/layout/GameNav";
+import { ALL_KNOWLEDGE_POINTS, MASTERY_LABELS, KnowledgePointCode, MasteryLevel } from "@/types/game";
 
 const SESSION_LENGTHS = [5, 10, 15, 35] as const;
 const DIFFICULTIES = ["Apprentice", "Journeyman", "Archmage"] as const;
@@ -57,13 +58,32 @@ export default function QuestHubPage() {
     }
   }
 
-  function startQuest() {
+  const regionMasteries = ((profile?.knowledgeMasteries ?? []) as Array<{
+    region: string;
+    knowledgePointCode: string;
+    masteryLevel: number;
+    masteryScore?: number;
+    totalAttempts?: number;
+  }>).filter((item) => item.region === region);
+
+  const rankedMasteries = [...regionMasteries].sort((a, b) => {
+    if (a.masteryLevel !== b.masteryLevel) return a.masteryLevel - b.masteryLevel;
+    return (a.masteryScore ?? 0) - (b.masteryScore ?? 0);
+  });
+
+  const weakKnowledgePoints = rankedMasteries.slice(0, 3).map((item) => ({
+    ...item,
+    label: ALL_KNOWLEDGE_POINTS.find((point) => point.code === item.knowledgePointCode)?.name ?? item.knowledgePointCode,
+  }));
+
+  function startQuest(focusKnowledgePointCodes?: string[]) {
     // Store session params for the play page
     sessionStorage.setItem("questParams", JSON.stringify({
       profileId: profile.id,
       region,
       sessionLength,
       difficulty,
+      focusKnowledgePointCodes,
     }));
     router.push(`/quest/${encodeURIComponent(region)}/play`);
   }
@@ -174,6 +194,102 @@ export default function QuestHubPage() {
           </div>
         </div>
 
+        {weakKnowledgePoints.length > 0 && (
+          <div
+            className="p-6 rounded-2xl mb-8"
+            style={{ background: "#16213B", border: "1px solid #2E5A8E55" }}
+          >
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-sm uppercase tracking-widest mb-1" style={{ color: "#6BA3D6" }}>
+                  Recommended next focus
+                </h3>
+                <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.72 }}>
+                  The next targeted quest will lean into the topics that still need strengthening.
+                </p>
+              </div>
+              <button
+                onClick={() => startQuest(weakKnowledgePoints.map((item) => item.knowledgePointCode))}
+                className="px-5 py-3 rounded-xl font-bold text-sm transition-all duration-200 hover:scale-[1.02]"
+                style={{
+                  background: "linear-gradient(135deg, #6BA3D6, #A8D4F0)",
+                  color: "#0F1C3F",
+                }}
+              >
+                Start Targeted Quest
+              </button>
+            </div>
+            <div className="space-y-3">
+              {weakKnowledgePoints.map((item) => (
+                <div
+                  key={item.knowledgePointCode}
+                  className="flex items-center justify-between gap-3 rounded-xl px-4 py-3"
+                  style={{ background: "#1E2E5A", border: "1px solid #6BA3D633" }}
+                >
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: "#E7C777" }}>
+                      {item.knowledgePointCode} · {item.label}
+                    </p>
+                    <p className="text-xs" style={{ color: "#EADFC8", opacity: 0.65 }}>
+                      {(item.totalAttempts ?? 0) > 0
+                        ? `${item.totalAttempts} attempts so far`
+                        : "Not practised enough yet"}
+                    </p>
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded-full" style={{ background: "#0F1C3F", color: "#6BA3D6" }}>
+                    {MASTERY_LABELS[(item.masteryLevel as MasteryLevel) ?? 1]}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {rankedMasteries.length > 0 && (
+          <div
+            className="p-6 rounded-2xl mb-8"
+            style={{ background: "#1E2E5A", border: "1px solid #B68A3A33" }}
+          >
+            <h3 className="text-sm uppercase tracking-widest mb-4" style={{ color: "#B68A3A" }}>
+              Knowledge Mastery
+            </h3>
+            <div className="space-y-3">
+              {rankedMasteries.map((item) => {
+                const label =
+                  ALL_KNOWLEDGE_POINTS.find((point) => point.code === item.knowledgePointCode)?.name ??
+                  item.knowledgePointCode;
+                const progress = Math.max(12, Math.min(100, Math.round((item.masteryLevel / 5) * 100)));
+                return (
+                  <div key={item.knowledgePointCode}>
+                    <div className="flex items-center justify-between gap-3 mb-1">
+                      <p className="text-sm" style={{ color: "#EADFC8" }}>
+                        <span style={{ color: "#E7C777" }}>{item.knowledgePointCode}</span> · {label}
+                      </p>
+                      <span className="text-xs" style={{ color: "#B68A3A" }}>
+                        {MASTERY_LABELS[(item.masteryLevel as MasteryLevel) ?? 1]}
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full overflow-hidden" style={{ background: "#0F1C3F" }}>
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${progress}%`,
+                          background:
+                            item.masteryLevel >= 4
+                              ? "linear-gradient(90deg, #B68A3A, #E7C777)"
+                              : item.masteryLevel === 3
+                              ? "linear-gradient(90deg, #4A7BC4, #6BA3D6)"
+                              : "linear-gradient(90deg, #C47A4A, #E7C777)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Info box */}
         <div
           className="p-4 rounded-xl mb-8 text-sm"
@@ -200,7 +316,7 @@ export default function QuestHubPage() {
 
         {/* Start Button */}
         <button
-          onClick={startQuest}
+          onClick={() => startQuest()}
           className="w-full py-4 rounded-2xl font-bold text-xl transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
           style={{
             background: "linear-gradient(135deg, #B68A3A, #E7C777)",

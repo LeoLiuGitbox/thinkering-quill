@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import GameNav from "@/components/layout/GameNav";
+import MarkdownContext from "@/components/game/MarkdownContext";
 
 export default function OraclePage() {
   const router = useRouter();
@@ -85,7 +86,7 @@ export default function OraclePage() {
     <div className="min-h-screen flex flex-col" style={{ background: "#0F1C3F" }}>
       <GameNav profile={profile} />
 
-      <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-8 flex flex-col">
+      <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-8 flex flex-col">
         {/* Header */}
         <div className="text-center mb-8">
           <div
@@ -137,8 +138,14 @@ export default function OraclePage() {
               {/* Question bubble */}
               <div className="flex justify-end">
                 <div
-                  className="max-w-md px-4 py-3 rounded-2xl text-sm"
-                  style={{ background: "#B68A3A22", border: "1px solid #B68A3A", color: "#E7C777" }}
+                  className="max-w-lg px-5 py-4 rounded-2xl"
+                  style={{
+                    background: "#B68A3A22",
+                    border: "1px solid #B68A3A",
+                    color: "#E7C777",
+                    fontSize: "1.2rem",
+                    lineHeight: 1.85,
+                  }}
                 >
                   {item.q}
                 </div>
@@ -146,7 +153,7 @@ export default function OraclePage() {
               {/* Oracle response */}
               <div className="flex justify-start">
                 <div
-                  className="max-w-2xl px-5 py-4 rounded-2xl text-sm leading-relaxed"
+                  className="max-w-3xl px-6 py-5 rounded-2xl leading-relaxed"
                   style={{ background: "#1E2E5A", border: "1px solid #6B4AC444", color: "#EADFC8" }}
                 >
                   <div className="flex items-center gap-2 mb-2">
@@ -155,7 +162,13 @@ export default function OraclePage() {
                       The Oracle speaks
                     </span>
                   </div>
-                  <p style={{ whiteSpace: "pre-wrap", fontFamily: "Georgia, serif" }}>{item.a}</p>
+                  <MarkdownContext
+                    text={item.a}
+                    style={{ fontFamily: "Georgia, serif", color: "#EADFC8" }}
+                    enableCharts={false}
+                    baseFontSize="1.4rem"
+                    baseLineHeight={2.05}
+                  />
                 </div>
               </div>
             </div>
@@ -166,15 +179,21 @@ export default function OraclePage() {
             <div className="space-y-3">
               <div className="flex justify-end">
                 <div
-                  className="max-w-md px-4 py-3 rounded-2xl text-sm"
-                  style={{ background: "#B68A3A22", border: "1px solid #B68A3A", color: "#E7C777" }}
+                  className="max-w-lg px-5 py-4 rounded-2xl"
+                  style={{
+                    background: "#B68A3A22",
+                    border: "1px solid #B68A3A",
+                    color: "#E7C777",
+                    fontSize: "1.2rem",
+                    lineHeight: 1.85,
+                  }}
                 >
                   {question || history[history.length - 1]?.q || "…"}
                 </div>
               </div>
               <div className="flex justify-start">
                 <div
-                  className="max-w-2xl px-5 py-4 rounded-2xl text-sm leading-relaxed"
+                  className="max-w-3xl px-6 py-5 rounded-2xl leading-relaxed"
                   style={{ background: "#1E2E5A", border: "1px solid #6B4AC444", color: "#EADFC8" }}
                 >
                   <div className="flex items-center gap-2 mb-2">
@@ -184,10 +203,16 @@ export default function OraclePage() {
                     </span>
                   </div>
                   {response ? (
-                    <p style={{ whiteSpace: "pre-wrap", fontFamily: "Georgia, serif" }}>
-                      {response}
+                    <div>
+                      <MarkdownContext
+                        text={response}
+                        style={{ fontFamily: "Georgia, serif", color: "#EADFC8" }}
+                        enableCharts={false}
+                        baseFontSize="1.4rem"
+                        baseLineHeight={2.05}
+                      />
                       <span className="animate-pulse" style={{ color: "#B68A3A" }}>▋</span>
-                    </p>
+                    </div>
                   ) : (
                     <p className="animate-pulse" style={{ color: "#B68A3A" }}>
                       The Oracle consults the ancient scrolls…
@@ -211,17 +236,18 @@ export default function OraclePage() {
             onKeyDown={(e) => e.key === "Enter" && askOracle()}
             placeholder="Ask the Oracle anything about the ASET exam…"
             disabled={streaming}
-            className="flex-1 bg-transparent outline-none text-sm"
-            style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}
+            className="flex-1 bg-transparent outline-none"
+            style={{ color: "#EADFC8", fontFamily: "Georgia, serif", fontSize: "1.25rem", lineHeight: 1.9 }}
           />
           <button
             onClick={askOracle}
             disabled={streaming || !question.trim()}
-            className="px-5 py-2 rounded-xl font-bold text-sm transition-all hover:opacity-90 disabled:opacity-40"
+            className="px-5 py-2 rounded-xl font-bold transition-all hover:opacity-90 disabled:opacity-40"
             style={{
               background: "linear-gradient(135deg, #B68A3A, #E7C777)",
               color: "#0F1C3F",
               fontFamily: "Georgia, serif",
+              fontSize: "1.1rem",
             }}
           >
             {streaming ? "…" : "Ask ✨"}

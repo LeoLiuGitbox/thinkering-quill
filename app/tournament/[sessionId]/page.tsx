@@ -570,7 +570,7 @@ export default function TournamentSessionPage() {
           </div>
         </div>
 
-        <main className="max-w-3xl mx-auto px-6 py-6">
+        <main className="max-w-4xl mx-auto px-6 py-6">
           {isWriting ? (
             /* Writing Section */
             <div>
@@ -585,7 +585,7 @@ export default function TournamentSessionPage() {
                   Writing Prompt
                 </p>
                 <p
-                  className="text-lg leading-relaxed"
+                  className="text-2xl leading-relaxed"
                   style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}
                 >
                   {currentQuestion.questionText}
@@ -602,7 +602,7 @@ export default function TournamentSessionPage() {
                   border: "1px solid #B68A3A44",
                   color: "#EADFC8",
                   fontFamily: "Georgia, serif",
-                  fontSize: "1rem",
+                  fontSize: "1.125rem",
                   lineHeight: "1.7",
                 }}
               />
@@ -660,7 +660,7 @@ export default function TournamentSessionPage() {
                 style={{ background: "#1E2E5A", border: "1px solid #B68A3A44" }}
               >
                 <p
-                  className="text-lg leading-relaxed"
+                  className="text-2xl leading-relaxed"
                   style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}
                 >
                   {currentQuestion.questionText}
@@ -681,6 +681,8 @@ export default function TournamentSessionPage() {
                           border: `2px solid ${selected ? "#E7C777" : "#B68A3A44"}`,
                           color: "#EADFC8",
                           fontFamily: "Georgia, serif",
+                          fontSize: "1.125rem",
+                          lineHeight: 1.8,
                         }}
                       >
                         <span className="font-bold mr-2" style={{ color: "#B68A3A" }}>

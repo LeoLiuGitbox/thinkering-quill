@@ -241,6 +241,8 @@ RULES:
 - Make the strong and weak examples short and easy to compare
 - The task should be completable in 5-10 minutes
 - Do not mention scores or grading
+- Prefer a concrete story background, scene, or situation over a generic instruction
+- Make the task prompt feel like a real moment the student can step into
 
 OUTPUT: Valid JSON only. No markdown fences.
 
@@ -286,6 +288,8 @@ ${guidance.focus}
 
 HELPFUL NOTES:
 - ${guidance.examples.join("\n- ")}
+- Give the student a specific topic, setting, or story situation, not a vague "write about..." task
+- Make the prompt easy to imagine visually so the student's writing can fit the topic naturally
 ${scaffoldInstruction}
 
 Return the JSON in the required format only.`;
@@ -311,8 +315,12 @@ Return:
   "strength": "One specific strength",
   "priorityIssue": "The main issue to improve next",
   "revisionInstruction": "One concrete revision instruction",
+  "quotedOriginalSnippet": "A short exact quote from the student's draft that needs attention",
+  "revisedSnippet": "A stronger replacement for that exact quote",
+  "topicConnection": "One sentence explaining how the revision better matches the task topic",
   "modelExample": "Optional short example or rewrite",
-  "nextStep": "Short encouragement toward the next draft"
+  "nextStep": "Short encouragement toward the next draft",
+  "improvedDraft": "A close revision of the student's draft with more accurate, vivid, and imaginative wording that still sounds like the student's idea"
 }`;
 }
 
@@ -336,6 +344,17 @@ STUDENT DRAFT:
 ---
 ${params.draftText}
 ---
+
+IMPORTANT:
+- The feedback must clearly connect to the TASK topic, not just the writing skill in general
+- Quote one exact short snippet from the student's draft in "quotedOriginalSnippet"
+- Return a better version of that same snippet in "revisedSnippet"
+- In "topicConnection", explain how the revision fits the task topic or scene more clearly
+- Return an "improvedDraft" that keeps the student's core idea and overall structure, but uses more accurate, vivid, and creative wording
+- Make enough changes to give the student inspiration, not just tiny corrections
+- Improve clarity, imagery, and word choice before fixing every small grammar issue
+- Do NOT rewrite the whole piece in a new voice
+- Keep the draft recognisably connected to the student's version, but do not be afraid to strengthen weak or flat phrases
 
 Return the JSON in the required format only.`;
 }

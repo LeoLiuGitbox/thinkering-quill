@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import GameNav from "@/components/layout/GameNav";
+import { getRelicLore } from "@/lib/relicLore";
 
-interface ArtifactDef {
+interface ArtifactCatalogItem {
   id: number;
   key: string;
   name: string;
@@ -13,14 +14,10 @@ interface ArtifactDef {
   rarity: string;
   loreText: string;
   unlockRule: string;
-}
-
-interface ProfileArtifact {
-  profileId: number;
-  artifactId: number;
-  unlockedAt: string;
+  unlockLabel: string;
+  isUnlocked: boolean;
   equipped: boolean;
-  artifact: ArtifactDef;
+  unlockedAt: string | null;
 }
 
 interface Profile {
@@ -30,7 +27,12 @@ interface Profile {
   totalXP: number;
   rank: string;
   auraAlignment: string;
-  artifacts: ProfileArtifact[];
+}
+
+interface VaultSummary {
+  unlockedCount: number;
+  equippedCount: number;
+  totalCount: number;
 }
 
 type Category = "all" | "wand" | "spellbook" | "lens" | "rune" | "compass" | "cloak" | "familiar";
@@ -68,6 +70,8 @@ function formatDate(iso: string): string {
 export default function VaultPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [artifacts, setArtifacts] = useState<ArtifactCatalogItem[]>([]);
+  const [summary, setSummary] = useState<VaultSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<Category>("all");
 
@@ -82,9 +86,11 @@ export default function VaultPage() {
 
   async function fetchProfile(id: string) {
     try {
-      const res = await fetch(`/api/profile/${id}`);
+      const res = await fetch(`/api/vault/${id}`);
       const data = await res.json();
-      setProfile(data.profile ?? data);
+      setProfile(data.profile ?? null);
+      setArtifacts(data.artifacts ?? []);
+      setSummary(data.summary ?? null);
     } catch (err) {
       console.error("Failed to load profile:", err);
     } finally {
@@ -108,12 +114,10 @@ export default function VaultPage() {
 
   if (!profile) return null;
 
-  const artifacts = profile.artifacts ?? [];
-
   const filtered =
     activeCategory === "all"
       ? artifacts
-      : artifacts.filter((a) => a.artifact.category === activeCategory);
+      : artifacts.filter((artifact) => artifact.category === activeCategory);
 
   const categories: Category[] = [
     "all",
@@ -154,9 +158,44 @@ export default function VaultPage() {
             Artifact Vault
           </h1>
           <p style={{ color: "#EADFC8", opacity: 0.7 }}>
-            {artifacts.length} artifact{artifacts.length !== 1 ? "s" : ""} collected ·{" "}
-            {artifacts.filter((a) => a.equipped).length} equipped
+            {summary?.unlockedCount ?? 0} relic{(summary?.unlockedCount ?? 0) !== 1 ? "s" : ""} unsealed ·{" "}
+            {summary?.equippedCount ?? 0} equipped · {summary?.totalCount ?? artifacts.length} known to the Hall
           </p>
+        </div>
+
+        <div
+          className="rounded-2xl p-5 mb-8"
+          style={{ background: "#1E2E5A", border: "1px solid #B68A3A22" }}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] mb-2" style={{ color: "#B68A3A" }}>
+                How relics are earned
+              </p>
+              <p className="text-sm leading-relaxed" style={{ color: "#EADFC8", opacity: 0.8 }}>
+                Relics are not random gifts. Most unlock through sanctum rank ascension or badge milestones, then
+                appear here as soon as the seal breaks.
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] mb-2" style={{ color: "#B68A3A" }}>
+                Sealed relics
+              </p>
+              <p className="text-sm leading-relaxed" style={{ color: "#EADFC8", opacity: 0.8 }}>
+                Locked cards stay visible so the learner can see what the Hall still holds and exactly what must be
+                achieved to claim it.
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] mb-2" style={{ color: "#B68A3A" }}>
+                Best next step
+              </p>
+              <p className="text-sm leading-relaxed" style={{ color: "#EADFC8", opacity: 0.8 }}>
+                Grow rank in quests, earn badge tiers in the Tome, and revisit weak skills to unseal more of the
+                vault.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Category Filter Tabs */}
@@ -177,7 +216,7 @@ export default function VaultPage() {
               {cat === "all" ? "✨ All" : `${CATEGORY_ICONS[cat]} ${cat.charAt(0).toUpperCase() + cat.slice(1)}`}
               {cat !== "all" && (
                 <span className="ml-1 opacity-60 text-xs">
-                  ({artifacts.filter((a) => a.artifact.category === cat).length})
+                  ({artifacts.filter((artifact) => artifact.category === cat).length})
                 </span>
               )}
             </button>
@@ -196,13 +235,13 @@ export default function VaultPage() {
               style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}
             >
               {activeCategory === "all"
-                ? "Your vault awaits its first treasure."
-                : `No ${activeCategory} artifacts yet.`}
+                ? "The Hall has not revealed any relics yet."
+                : `No ${activeCategory} relics recorded here yet.`}
             </h3>
             <p className="text-sm max-w-xs mx-auto" style={{ color: "#EADFC8", opacity: 0.6 }}>
               {activeCategory === "all"
-                ? "Complete quests and tournaments to unlock artifacts."
-                : `Complete relevant quests to discover ${activeCategory} artifacts.`}
+                ? "Progress through quests, badges, and sanctum ranks to begin unsealing the Vault."
+                : `Progress through the matching sanctum path to reveal ${activeCategory} relics.`}
             </p>
             <Link
               href="/home"
@@ -214,22 +253,25 @@ export default function VaultPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {filtered.map((pa) => {
-              const art = pa.artifact;
-              const rarityColour = RARITY_COLOUR[art.rarity] ?? "#9CA3AF";
+            {filtered.map((artifact) => {
+              const rarityColour = RARITY_COLOUR[artifact.rarity] ?? "#9CA3AF";
+              const relicLore = getRelicLore(artifact.key);
 
               return (
                 <div
-                  key={pa.artifactId}
+                  key={artifact.id}
                   className="rounded-2xl p-6 relative transition-all duration-300 hover:scale-[1.01]"
                   style={{
-                    background: "#1E2E5A",
-                    border: `1px solid ${rarityColour}55`,
-                    boxShadow: rarityGlow(art.rarity),
+                    background: artifact.isUnlocked
+                      ? "#1E2E5A"
+                      : "linear-gradient(180deg, rgba(18, 29, 56, 0.98), rgba(9, 14, 29, 0.98))",
+                    border: `1px solid ${artifact.isUnlocked ? `${rarityColour}55` : "#B68A3A33"}`,
+                    boxShadow: artifact.isUnlocked ? rarityGlow(artifact.rarity) : "none",
+                    opacity: artifact.isUnlocked ? 1 : 0.95,
                   }}
                 >
                   {/* Equipped badge */}
-                  {pa.equipped && (
+                  {artifact.equipped && (
                     <span
                       className="absolute top-4 right-4 text-xs font-bold px-2 py-0.5 rounded-full"
                       style={{
@@ -240,18 +282,36 @@ export default function VaultPage() {
                       Equipped
                     </span>
                   )}
+                  {!artifact.isUnlocked && (
+                    <span
+                      className="absolute top-4 right-4 text-xs font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: "#16213B",
+                        color: "#E7C777",
+                        border: "1px solid #B68A3A44",
+                      }}
+                    >
+                      Sealed
+                    </span>
+                  )}
 
                   {/* Category icon + Name */}
                   <div className="flex items-start gap-4 mb-4">
-                    <span className="text-4xl">
-                      {CATEGORY_ICONS[art.category] ?? "🪄"}
+                    <span
+                      className="text-4xl"
+                      style={{ filter: artifact.isUnlocked ? "none" : "grayscale(1) brightness(0.8)" }}
+                    >
+                      {artifact.isUnlocked ? (CATEGORY_ICONS[artifact.category] ?? "🪄") : "🔒"}
                     </span>
                     <div className="flex-1 min-w-0">
                       <h3
                         className="text-lg font-bold leading-tight"
-                        style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}
+                        style={{
+                          color: artifact.isUnlocked ? "#E7C777" : "#EADFC8",
+                          fontFamily: "Georgia, serif",
+                        }}
                       >
-                        {art.name}
+                        {artifact.name}
                       </h3>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {/* Rarity badge */}
@@ -263,11 +323,11 @@ export default function VaultPage() {
                             border: `1px solid ${rarityColour}55`,
                           }}
                         >
-                          {art.rarity}
+                          {artifact.rarity}
                         </span>
                         {/* Category label */}
                         <span className="text-xs capitalize" style={{ color: "#EADFC8", opacity: 0.55 }}>
-                          {art.category}
+                          {artifact.category}
                         </span>
                       </div>
                     </div>
@@ -276,24 +336,71 @@ export default function VaultPage() {
                   {/* Lore text */}
                   <p
                     className="text-sm leading-relaxed mb-4 italic"
-                    style={{ color: "#EADFC8", opacity: 0.8 }}
+                    style={{ color: "#EADFC8", opacity: artifact.isUnlocked ? 0.8 : 0.62 }}
                   >
-                    "{art.loreText}"
+                    "{artifact.loreText}"
                   </p>
+
+                  {relicLore && (
+                    <div
+                      className="rounded-xl p-4 mb-4"
+                      style={{ background: "#16213B", border: "1px solid #B68A3A22" }}
+                    >
+                      <p className="text-xs uppercase tracking-[0.2em] mb-2" style={{ color: "#B68A3A" }}>
+                        {relicLore.chapter}
+                      </p>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-xs font-bold mb-1" style={{ color: "#E7C777" }}>
+                            Story
+                          </p>
+                          <p className="text-sm leading-relaxed" style={{ color: "#EADFC8", opacity: 0.82 }}>
+                            {relicLore.storyBeat}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold mb-1" style={{ color: "#E7C777" }}>
+                            Special Magic · {relicLore.powerTitle}
+                          </p>
+                          <p className="text-sm leading-relaxed" style={{ color: "#EADFC8", opacity: 0.82 }}>
+                            {relicLore.powerEffect}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold mb-1" style={{ color: "#E7C777" }}>
+                            How to obtain
+                          </p>
+                          <p className="text-sm leading-relaxed" style={{ color: "#EADFC8", opacity: 0.82 }}>
+                            {relicLore.obtainMethod}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Footer */}
                   <div
-                    className="flex items-center justify-between text-xs pt-3"
+                    className="flex items-end justify-between gap-4 text-xs pt-3"
                     style={{ borderTop: "1px solid #B68A3A22" }}
                   >
-                    <span style={{ color: "#B68A3A" }}>
-                      Unlocked {formatDate(pa.unlockedAt)}
+                    <div className="space-y-1">
+                      <p style={{ color: "#B68A3A" }}>
+                        {artifact.isUnlocked
+                          ? `Unlocked ${formatDate(artifact.unlockedAt ?? new Date().toISOString())}`
+                          : "Seal still intact"}
+                      </p>
+                      <p style={{ color: "#EADFC8", opacity: 0.58 }}>
+                        {artifact.unlockLabel}
+                      </p>
+                    </div>
+                    <span
+                      style={{
+                        color: artifact.isUnlocked ? "#E7C777" : "#EADFC8",
+                        opacity: artifact.isUnlocked ? 0.8 : 0.45,
+                      }}
+                    >
+                      {artifact.unlockRule}
                     </span>
-                    {art.unlockRule && (
-                      <span style={{ color: "#EADFC8", opacity: 0.45 }}>
-                        {art.unlockRule}
-                      </span>
-                    )}
                   </div>
                 </div>
               );
@@ -307,7 +414,8 @@ export default function VaultPage() {
           style={{ background: "#1E2E5A", border: "1px solid #B68A3A22" }}
         >
           <p style={{ color: "#EADFC8", opacity: 0.55 }}>
-            🔍 More artifacts await discovery. Complete quests, tournaments, and challenges to unlock them.
+            🔍 The Vault records both what you have earned and what still waits behind a seal. Use the Tome and your
+            next quest recommendations to decide which relic to chase next.
           </p>
         </div>
       </main>

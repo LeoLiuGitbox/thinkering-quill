@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import GameNav from "@/components/layout/GameNav";
+import AscensionAvatarSigil from "@/components/ascension/AscensionAvatarSigil";
+import { ASCENSION_RANKS, getAscensionMeta } from "@/lib/ascension";
 
 interface KnowledgeMastery {
   knowledgePointCode: string;
@@ -36,18 +38,6 @@ interface Profile {
   knowledgeMasteries: KnowledgeMastery[];
   badges: Badge[];
 }
-
-const RANK_ORDER = [
-  "Novice Scribe",
-  "Rune Apprentice",
-  "Arcane Solver",
-  "Puzzle Adept",
-  "Spell Scholar",
-  "Logic Mage",
-  "Master of the Quill",
-];
-
-const RANK_XP = [0, 100, 300, 600, 1000, 1600, 2500];
 
 const MASTERY_LABEL: Record<number, { label: string; icon: string; colour: string }> = {
   1: { label: "Seedling", icon: "🌱", colour: "#ef4444" },
@@ -99,6 +89,18 @@ const ATTRIBUTES = [
   { key: "attrWisdom", label: "Wisdom", icon: "✨", colour: "#E7C777", school: "Wisdom" },
 ];
 
+const SUBJECT_META = {
+  QR: { label: "Clocktower of Logic", icon: "⚙️", colour: "#6BA3D6" },
+  AR: { label: "Forest of Patterns", icon: "🌿", colour: "#6BC47A" },
+  RC: { label: "Lake of Reflection", icon: "💧", colour: "#6BB4C4" },
+} as const;
+
+const SUBJECT_REGION = {
+  QR: "Clocktower of Logic",
+  AR: "Forest of Patterns",
+  RC: "Lake of Reflection",
+} as const;
+
 export default function TomePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -127,25 +129,84 @@ export default function TomePage() {
     );
   }
 
-  const rankIdx = RANK_ORDER.indexOf(profile.rank);
-  const currentRankXP = RANK_XP[rankIdx] ?? 0;
-  const nextRankXP = RANK_XP[rankIdx + 1] ?? currentRankXP + 500;
-  const xpProgress = Math.min(100, ((profile.totalXP - currentRankXP) / (nextRankXP - currentRankXP)) * 100);
+  const currentAscension = getAscensionMeta(profile.rank as any);
+  const rankIdx = ASCENSION_RANKS.findIndex((item) => item.rank === profile.rank);
+  const nextAscension = ASCENSION_RANKS[rankIdx + 1] ?? null;
+  const currentRankXP = currentAscension?.xpRequired ?? 0;
+  const nextRankXP = nextAscension?.xpRequired ?? currentRankXP;
+  const xpProgress = nextAscension
+    ? Math.min(100, ((profile.totalXP - currentRankXP) / (nextRankXP - currentRankXP)) * 100)
+    : 100;
 
   const filteredMasteries = profile.knowledgeMasteries.filter(m =>
     masteryFilter === "all" || m.knowledgePointCode.startsWith(masteryFilter)
   );
+  const rankedByWeakness = [...profile.knowledgeMasteries].sort((a, b) => {
+    if (a.masteryLevel !== b.masteryLevel) return a.masteryLevel - b.masteryLevel;
+    return a.masteryScore - b.masteryScore;
+  });
+  const rankedByStrength = [...profile.knowledgeMasteries].sort((a, b) => {
+    if (a.masteryLevel !== b.masteryLevel) return b.masteryLevel - a.masteryLevel;
+    return b.masteryScore - a.masteryScore;
+  });
+  const weakestTopics = rankedByWeakness.slice(0, 3);
+  const strongestTopics = rankedByStrength.slice(0, 3);
+
+  const subjectReport = (Object.keys(SUBJECT_META) as Array<keyof typeof SUBJECT_META>).map((subject) => {
+    const items = profile.knowledgeMasteries.filter((m) => m.knowledgePointCode.startsWith(subject));
+    const weakest = [...items].sort((a, b) => {
+      if (a.masteryLevel !== b.masteryLevel) return a.masteryLevel - b.masteryLevel;
+      return a.masteryScore - b.masteryScore;
+    })[0] ?? null;
+    const avgLevel = items.length > 0
+      ? items.reduce((sum, item) => sum + item.masteryLevel, 0) / items.length
+      : 0;
+    const strongCount = items.filter((item) => item.masteryLevel >= 4).length;
+    return {
+      subject,
+      count: items.length,
+      avgLevel,
+      strongCount,
+      readiness: items.length > 0 ? Math.round((avgLevel / 5) * 100) : 0,
+      weakest,
+    };
+  });
 
   const earnedBadges = profile.badges;
   const allBadgeKeys = Object.keys(BADGE_DEFS);
 
-  return (
-    <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
-      <GameNav />
+  function startTargetedQuest(knowledgePointCodes: string[]) {
+    const focusCodes = knowledgePointCodes.filter(Boolean);
+    if (!profile || focusCodes.length === 0) return;
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
+    const subjectPrefix = focusCodes[0].slice(0, 2) as keyof typeof SUBJECT_REGION;
+    const region = SUBJECT_REGION[subjectPrefix];
+    if (!region) return;
+
+    sessionStorage.setItem("questParams", JSON.stringify({
+      profileId: profile.id,
+      region,
+      sessionLength: 10,
+      difficulty: "Journeyman",
+      focusKnowledgePointCodes: focusCodes,
+    }));
+    router.push(`/quest/${encodeURIComponent(region)}/play`);
+  }
+
+  function handlePrintReport() {
+    setActiveTab("progress");
+    window.setTimeout(() => window.print(), 100);
+  }
+
+  return (
+    <div className="min-h-screen tome-page" style={{ background: "#0F1C3F" }}>
+      <div className="tome-screen-nav">
+        <GameNav profile={profile} />
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 py-8 tome-content">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 tome-header">
           <div className="text-5xl mb-3">📖</div>
           <h1 className="text-3xl font-bold mb-1" style={{ color: "#E7C777" }}>
             Wizard's Tome
@@ -156,7 +217,7 @@ export default function TomePage() {
         </div>
 
         {/* Rank card */}
-        <div className="rounded-xl p-6 mb-6 border" style={{ background: "#1E2E5A", borderColor: "#B68A3A" }}>
+        <div className="rounded-xl p-6 mb-6 border tome-rank-card" style={{ background: "#1E2E5A", borderColor: "#B68A3A" }}>
           <div className="flex items-center gap-4 mb-4">
             <div
               className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-2"
@@ -171,20 +232,35 @@ export default function TomePage() {
             </div>
             <div className="ml-auto text-right">
               <p className="text-xs mb-1" style={{ color: "#EADFC8", opacity: 0.7 }}>
-                {rankIdx < RANK_ORDER.length - 1 ? `Next: ${RANK_ORDER[rankIdx + 1]}` : "Max Rank!"}
+                {nextAscension ? `Next: ${nextAscension.rank}` : "Final Ascension!"}
               </p>
-              {rankIdx < RANK_ORDER.length - 1 && (
+              {nextAscension && (
                 <p className="text-xs" style={{ color: "#B68A3A" }}>
                   {nextRankXP - profile.totalXP} ✦ to go
                 </p>
               )}
             </div>
           </div>
-          {rankIdx < RANK_ORDER.length - 1 && (
+          <p className="text-sm mb-4" style={{ color: "#EADFC8", opacity: 0.76, lineHeight: 1.7 }}>
+            {currentAscension.lore}
+          </p>
+          <div
+            className="rounded-xl p-4 mb-4"
+            style={{ background: "#16213B", border: "1px solid #B68A3A22" }}
+          >
+            <p className="text-xs uppercase tracking-[0.2em] mb-2" style={{ color: "#B68A3A" }}>
+              Current Sanctum Power
+            </p>
+            <p className="font-bold mb-1" style={{ color: "#E7C777" }}>{currentAscension.powerName}</p>
+            <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.8 }}>
+              {currentAscension.powerDescription}
+            </p>
+          </div>
+          {nextAscension && (
             <div>
               <div className="flex justify-between text-xs mb-1" style={{ color: "#EADFC8", opacity: 0.6 }}>
                 <span>{profile.rank}</span>
-                <span>{RANK_ORDER[rankIdx + 1]}</span>
+                <span>{nextAscension.rank}</span>
               </div>
               <div className="w-full rounded-full h-3" style={{ background: "#0F1C3F" }}>
                 <div
@@ -192,12 +268,15 @@ export default function TomePage() {
                   style={{ width: `${xpProgress}%`, background: "linear-gradient(to right, #B68A3A, #E7C777)" }}
                 />
               </div>
+              <p className="text-xs mt-2" style={{ color: "#B68A3A" }}>
+                Next unlock: {nextAscension.powerName}
+              </p>
             </div>
           )}
         </div>
 
         {/* Attributes */}
-        <div className="rounded-xl p-5 mb-6 border" style={{ background: "#1E2E5A", borderColor: "#B68A3A33" }}>
+        <div className="rounded-xl p-5 mb-6 border tome-attributes" style={{ background: "#1E2E5A", borderColor: "#B68A3A33" }}>
           <h3 className="font-bold mb-4" style={{ color: "#E7C777" }}>Five Schools of Magic</h3>
           <div className="grid grid-cols-5 gap-3">
             {ATTRIBUTES.map(attr => {
@@ -223,7 +302,7 @@ export default function TomePage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 tome-tab-controls">
           {(["progress", "mastery", "badges"] as const).map(tab => (
             <button
               key={tab}
@@ -242,39 +321,236 @@ export default function TomePage() {
 
         {/* Tab: Progress */}
         {activeTab === "progress" && (
-          <div className="space-y-4">
-            <div className="rounded-xl p-5 border" style={{ background: "#1E2E5A", borderColor: "#B68A3A33" }}>
-              <h3 className="font-bold mb-4" style={{ color: "#E7C777" }}>Rank Journey</h3>
-              <div className="space-y-2">
-                {RANK_ORDER.map((rank, idx) => {
-                  const reached = profile.totalXP >= RANK_XP[idx];
-                  const isCurrent = rank === profile.rank;
+          <div className="space-y-4 tome-report">
+            <div className="hidden print:block rounded-xl p-5 border tome-print-summary"
+              style={{ background: "#ffffff", borderColor: "#d4b16a" }}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold mb-1" style={{ color: "#1f2937" }}>
+                    Skill Mastery Report
+                  </h2>
+                  <p className="text-sm" style={{ color: "#4b5563" }}>
+                    Learner: {profile.mageName} · Rank: {profile.rank} · Total Sparks: {profile.totalXP}
+                  </p>
+                </div>
+                <div className="text-right text-sm" style={{ color: "#6b7280" }}>
+                  <p>{new Date().toLocaleDateString("en-AU")}</p>
+                  <p>Thinkering Quill</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl p-5 border" style={{ background: "#16213B", borderColor: "#2E5A8E55" }}>
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="font-bold mb-1" style={{ color: "#E7C777" }}>Skill Mastery Report</h3>
+                  <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.72 }}>
+                    A clear snapshot of what is already strong and what should be trained next.
+                  </p>
+                </div>
+                <div className="flex gap-2 print:hidden">
+                  <button
+                    onClick={handlePrintReport}
+                    className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                    style={{ background: "#E7C777", color: "#0F1C3F" }}
+                  >
+                    Print Report
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("mastery")}
+                    className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                    style={{ background: "#6BA3D6", color: "#0F1C3F" }}
+                  >
+                    Open Mastery Map
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                {subjectReport.map(({ subject, count, avgLevel, strongCount, readiness, weakest }) => {
+                  const meta = SUBJECT_META[subject];
                   return (
-                    <div key={rank} className="flex items-center gap-3">
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-                        style={{
-                          background: reached ? "#B68A3A" : "#0F1C3F",
-                          color: reached ? "#0F1C3F" : "#EADFC8",
-                          border: `2px solid ${reached ? "#E7C777" : "#B68A3A33"}`,
-                        }}
-                      >
-                        {reached ? "✓" : idx + 1}
+                    <div key={subject} className="rounded-lg p-4" style={{ background: "#1E2E5A" }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xl">{meta.icon}</span>
+                        <div>
+                          <p className="text-sm font-bold" style={{ color: "#E7C777" }}>{meta.label}</p>
+                          <p className="text-xs" style={{ color: "#EADFC8", opacity: 0.65 }}>
+                            {count} topic{count === 1 ? "" : "s"} practised
+                          </p>
+                        </div>
                       </div>
-                      <span
-                        className="text-sm"
-                        style={{
-                          color: isCurrent ? "#E7C777" : reached ? "#EADFC8" : "#EADFC8",
-                          opacity: isCurrent ? 1 : reached ? 0.7 : 0.4,
-                          fontWeight: isCurrent ? "bold" : "normal",
-                        }}
-                      >
-                        {rank}
-                        {isCurrent && <span className="ml-2 text-xs" style={{ color: "#B68A3A" }}>(current)</span>}
-                      </span>
-                      <span className="ml-auto text-xs" style={{ color: "#B68A3A" }}>
-                        {RANK_XP[idx]} ✦
-                      </span>
+                      <div className="h-2 rounded-full overflow-hidden mb-2" style={{ background: "#0F1C3F" }}>
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${Math.max(readiness, 8)}%`, background: meta.colour }}
+                        />
+                      </div>
+                      <p className="text-xs" style={{ color: "#EADFC8", opacity: 0.75 }}>
+                        Readiness: {readiness}% · Avg level {avgLevel > 0 ? avgLevel.toFixed(1) : "0.0"} / 5
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: "#B68A3A" }}>
+                        {strongCount} strong/mastered
+                      </p>
+                      {weakest && (
+                        <div className="flex gap-2 mt-3 print:hidden">
+                          <button
+                            onClick={() => startTargetedQuest([weakest.knowledgePointCode])}
+                            className="px-3 py-2 rounded-lg text-xs font-bold transition-all hover:scale-[1.02]"
+                            style={{ background: meta.colour, color: "#0F1C3F" }}
+                          >
+                            Train weakest topic
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl p-5 border" style={{ background: "#1E2E5A", borderColor: "#B68A3A33" }}>
+                <h3 className="font-bold mb-4" style={{ color: "#E7C777" }}>Your Strongest Skills</h3>
+                {strongestTopics.length === 0 ? (
+                  <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.7 }}>
+                    Complete a few quests and your strongest topics will appear here.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {strongestTopics.map((topic) => {
+                      const info = MASTERY_LABEL[topic.masteryLevel] ?? MASTERY_LABEL[1];
+                      return (
+                        <div key={topic.knowledgePointCode} className="rounded-lg p-3" style={{ background: "#0F1C3F" }}>
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-bold" style={{ color: "#E7C777" }}>
+                                {topic.knowledgePointCode} · {KP_NAMES[topic.knowledgePointCode] ?? topic.knowledgePointCode}
+                              </p>
+                              <p className="text-xs" style={{ color: "#EADFC8", opacity: 0.68 }}>
+                                {topic.totalAttempts} attempts · {(topic.masteryScore * 100).toFixed(0)} mastery score
+                              </p>
+                            </div>
+                            <span className="text-xs px-2 py-1 rounded-full" style={{ background: "#1E2E5A", color: info.colour }}>
+                              {info.icon} {info.label}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => startTargetedQuest([topic.knowledgePointCode])}
+                            className="mt-3 px-3 py-2 rounded-lg text-xs font-bold transition-all hover:scale-[1.02] print:hidden"
+                            style={{ background: "#6BA3D6", color: "#0F1C3F" }}
+                          >
+                            Start targeted quest
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl p-5 border" style={{ background: "#1E2E5A", borderColor: "#B68A3A33" }}>
+                <h3 className="font-bold mb-4" style={{ color: "#E7C777" }}>Train These Next</h3>
+                {weakestTopics.length === 0 ? (
+                  <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.7 }}>
+                    Once you begin practising, your next-focus report will appear here.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {weakestTopics.map((topic) => {
+                      const info = MASTERY_LABEL[topic.masteryLevel] ?? MASTERY_LABEL[1];
+                      return (
+                        <div key={topic.knowledgePointCode} className="rounded-lg p-3" style={{ background: "#0F1C3F" }}>
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-bold" style={{ color: "#E7C777" }}>
+                                {topic.knowledgePointCode} · {KP_NAMES[topic.knowledgePointCode] ?? topic.knowledgePointCode}
+                              </p>
+                              <p className="text-xs" style={{ color: "#EADFC8", opacity: 0.68 }}>
+                                {topic.totalAttempts} attempts · first-try {topic.totalAttempts > 0 ? Math.round((topic.firstChoiceCorrect / topic.totalAttempts) * 100) : 0}%
+                              </p>
+                            </div>
+                            <span className="text-xs px-2 py-1 rounded-full" style={{ background: "#1E2E5A", color: info.colour }}>
+                              {info.icon} {info.label}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => startTargetedQuest([topic.knowledgePointCode])}
+                            className="mt-3 px-3 py-2 rounded-lg text-xs font-bold transition-all hover:scale-[1.02] print:hidden"
+                            style={{ background: "#E7C777", color: "#0F1C3F" }}
+                          >
+                            Start targeted quest
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-xl p-5 border" style={{ background: "#1E2E5A", borderColor: "#B68A3A33" }}>
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="font-bold mb-1" style={{ color: "#E7C777" }}>Mage Ascension Hall</h3>
+                  <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.74 }}>
+                    Sealed forms wait inside the sanctum. Each rank unlocks a new sacred avatar, lore, and power.
+                  </p>
+                </div>
+                <span className="text-xs px-3 py-1 rounded-full" style={{ background: "#16213B", color: "#B68A3A" }}>
+                  晋阶圣殿
+                </span>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                {ASCENSION_RANKS.map((item) => {
+                  const unlocked = profile.totalXP >= item.xpRequired;
+                  const isCurrent = item.rank === profile.rank;
+                  return (
+                    <div
+                      key={item.rank}
+                      className="rounded-2xl p-4 relative overflow-hidden"
+                      style={{
+                        background: unlocked ? "#16213B" : "#0F1C3F",
+                        border: `1px solid ${isCurrent ? item.colour : unlocked ? "#B68A3A33" : "#B68A3A22"}`,
+                        boxShadow: isCurrent ? `0 0 24px ${item.colour}33` : "none",
+                      }}
+                    >
+                      <div className="flex items-start gap-4">
+                        <AscensionAvatarSigil meta={item} locked={!unlocked} size={110} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
+                            <p className="font-bold" style={{ color: unlocked ? "#E7C777" : "#B68A3A88" }}>
+                              {unlocked ? item.hallTitle : "Sealed Form"}
+                            </p>
+                            {isCurrent && (
+                              <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#1E2E5A", color: item.colour }}>
+                                Current
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs mb-2" style={{ color: "#B68A3A" }}>
+                            {item.xpRequired} ✦ required
+                          </p>
+                          <p className="text-sm mb-3" style={{ color: unlocked ? "#EADFC8" : "#EADFC866", lineHeight: 1.7 }}>
+                            {unlocked ? item.lore : `A sealed rank-card rests in the sanctum. Unlock at ${item.xpRequired} ✦.`}
+                          </p>
+                          <div
+                            className="rounded-xl p-3"
+                            style={{ background: unlocked ? "#1A2545" : "#16213B", border: "1px solid #B68A3A22" }}
+                          >
+                            <p className="text-xs uppercase tracking-[0.18em] mb-1" style={{ color: unlocked ? item.accent : "#B68A3A66" }}>
+                              {unlocked ? "Sanctum Power" : "Sealed Power"}
+                            </p>
+                            <p className="font-bold text-sm mb-1" style={{ color: unlocked ? item.colour : "#B68A3A66" }}>
+                              {unlocked ? item.powerName : "????"}
+                            </p>
+                            <p className="text-xs" style={{ color: unlocked ? "#EADFC8" : "#EADFC855", lineHeight: 1.65 }}>
+                              {unlocked ? item.powerDescription : item.unlockVisual}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
@@ -443,6 +719,46 @@ export default function TomePage() {
           </div>
         )}
       </div>
+
+      <style jsx global>{`
+        @media print {
+          body {
+            background: #ffffff !important;
+          }
+
+          .tome-page,
+          .tome-content {
+            background: #ffffff !important;
+            color: #111827 !important;
+          }
+
+          .tome-screen-nav,
+          .tome-tab-controls,
+          .tome-header,
+          .tome-attributes {
+            display: none !important;
+          }
+
+          .tome-rank-card,
+          .tome-report > div,
+          .tome-report > section {
+            background: #ffffff !important;
+            border-color: #d1d5db !important;
+            box-shadow: none !important;
+            break-inside: avoid;
+          }
+
+          .tome-rank-card *,
+          .tome-report * {
+            color: #111827 !important;
+          }
+
+          .tome-rank-card [style*="background"],
+          .tome-report [style*="background"] {
+            box-shadow: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

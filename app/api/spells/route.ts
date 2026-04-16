@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { chat, parseJSON } from "@/lib/gemini";
 import { buildSpellsInTheWildSystemPrompt, buildSpellsInTheWildPrompt } from "@/lib/prompts/spells";
 import { ALL_KNOWLEDGE_POINTS, KnowledgePointCode } from "@/types/game";
+import { buildSpellAnswerKey, evaluateSpellDiscovery, parseSpellAnswerKey } from "@/lib/spellDiscovery";
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,6 +30,11 @@ export async function POST(request: NextRequest) {
           title: string;
           storyText: string;
           spotQuestion: string;
+          expectedAnswer: string;
+          acceptedKeywords?: string[];
+          acceptedPhrases?: string[];
+          successFeedback?: string;
+          retryFeedback?: string;
         }>(raw);
 
         return {
@@ -53,27 +59,48 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { entryId, profileId, knowledgePointCode, title, storyText, spotQuestion, studentAnswer } = body;
+    const { entryId, profileId, knowledgePointCode, spellName, title, storyText, spotQuestion, answerKey, studentAnswer } = body;
 
     // Update existing entry's studentAnswer (from Field Journal page)
     if (entryId) {
       const existing = await prisma.fieldJournalEntry.findUnique({ where: { id: entryId } });
       if (!existing) return NextResponse.json({ error: "Entry not found" }, { status: 404 });
 
+      const answer = String(studentAnswer ?? "").trim();
+      const discoveryResult = evaluateSpellDiscovery({
+        studentAnswer: answer,
+        answerKey: parseSpellAnswerKey(existing.answerKeyJson),
+      });
+      const firstDiscovery = discoveryResult.discovered && existing.discoveryStatus !== "discovered";
+
       const updated = await prisma.fieldJournalEntry.update({
         where: { id: entryId },
-        data: { studentAnswer: studentAnswer ?? null },
+        data: {
+          studentAnswer: answer || null,
+          discoveryStatus: discoveryResult.discovered ? "discovered" : existing.discoveryStatus,
+          discoveryFeedback: discoveryResult.feedback,
+          discoveryAttemptCount: { increment: answer ? 1 : 0 },
+          firstDiscoveredAt: firstDiscovery ? new Date() : existing.firstDiscoveredAt,
+          rewardClaimed: firstDiscovery ? true : existing.rewardClaimed,
+        },
       });
 
-      // Award +5 sparks first time an answer is saved (when there was none before)
-      if (!existing.studentAnswer && studentAnswer?.trim()) {
+      // Award only on the first successful discovery.
+      if (firstDiscovery) {
         await prisma.profile.update({
           where: { id: existing.profileId },
           data: { totalXP: { increment: 5 }, attrWisdom: { increment: 1 } },
         });
       }
 
-      return NextResponse.json({ entry: updated });
+      return NextResponse.json({
+        entry: updated,
+        result: {
+          discovered: discoveryResult.discovered,
+          feedback: discoveryResult.feedback,
+          rewardEarned: firstDiscovery ? 5 : 0,
+        },
+      });
     }
 
     // Create new journal entry
@@ -85,23 +112,14 @@ export async function PUT(request: NextRequest) {
       data: {
         profileId,
         knowledgePointCode,
+        spellName: spellName || null,
         title,
         storyText,
         spotQuestion,
+        answerKeyJson: answerKey ? JSON.stringify(buildSpellAnswerKey(answerKey)) : null,
         studentAnswer: studentAnswer || null,
       },
     });
-
-    // Award +5 sparks if student answered the spot question on first save
-    if (studentAnswer && studentAnswer.trim().length > 0) {
-      await prisma.profile.update({
-        where: { id: profileId },
-        data: {
-          totalXP: { increment: 5 },
-          attrWisdom: { increment: 1 },
-        },
-      });
-    }
 
     return NextResponse.json({ entry }, { status: 201 });
   } catch (error) {

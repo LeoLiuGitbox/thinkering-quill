@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import GameNav from "@/components/layout/GameNav";
+import { getNextRankInfo } from "@/lib/progression";
+import { getAscensionMeta } from "@/lib/ascension";
 
 interface Profile {
   id: number;
@@ -18,6 +20,19 @@ interface Profile {
   attrFocus: number;
   attrCraft: number;
   attrWisdom: number;
+  knowledgeMasteries?: Array<{
+    knowledgePointCode: string;
+    masteryLevel: number;
+    masteryScore: number;
+  }>;
+  questSessions?: Array<{
+    id: number;
+    region: string;
+    totalSparks: number;
+    correctCount: number;
+    questionCount: number;
+    completedAt: string | null;
+  }>;
 }
 
 const REGIONS = [
@@ -104,6 +119,18 @@ export default function HomePage() {
     }
   }
 
+  function startRecommendedQuest(region: string, focusKnowledgePointCodes: string[]) {
+    if (!profile || focusKnowledgePointCodes.length === 0) return;
+    sessionStorage.setItem("questParams", JSON.stringify({
+      profileId: profile.id,
+      region,
+      sessionLength: 10,
+      difficulty: "Journeyman",
+      focusKnowledgePointCodes,
+    }));
+    router.push(`/quest/${encodeURIComponent(region)}/play`);
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "#0F1C3F" }}>
@@ -147,7 +174,32 @@ export default function HomePage() {
     );
   }
 
-  const xpForNextRank = getNextRankXP(profile.totalXP);
+  const xpForNextRank = getNextRankInfo(profile.totalXP);
+  const currentAscension = getAscensionMeta(profile.rank as any);
+  const rankedWeakTopics = [...(profile.knowledgeMasteries || [])].sort((a, b) => {
+    if (a.masteryLevel !== b.masteryLevel) return a.masteryLevel - b.masteryLevel;
+    return a.masteryScore - b.masteryScore;
+  });
+  const weakestTopics = rankedWeakTopics.slice(0, 3);
+  const recommendedRegion = weakestTopics[0]?.knowledgePointCode.startsWith("QR")
+    ? "Clocktower of Logic"
+    : weakestTopics[0]?.knowledgePointCode.startsWith("AR")
+    ? "Forest of Patterns"
+    : weakestTopics[0]?.knowledgePointCode.startsWith("RC")
+    ? "Lake of Reflection"
+    : null;
+  const recommendedFocusCodes = weakestTopics
+    .filter((item) =>
+      recommendedRegion === "Clocktower of Logic"
+        ? item.knowledgePointCode.startsWith("QR")
+        : recommendedRegion === "Forest of Patterns"
+        ? item.knowledgePointCode.startsWith("AR")
+        : recommendedRegion === "Lake of Reflection"
+        ? item.knowledgePointCode.startsWith("RC")
+        : false
+    )
+    .map((item) => item.knowledgePointCode);
+  const latestQuestReview = profile.questSessions?.[0] ?? null;
 
   return (
     <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
@@ -168,6 +220,9 @@ export default function HomePage() {
           </h1>
           <p style={{ color: "#EADFC8", opacity: 0.7 }}>
             {profile.rank} · {profile.totalXP.toLocaleString()} ✦ Knowledge Sparks
+          </p>
+          <p className="text-sm mt-2 max-w-2xl mx-auto" style={{ color: "#B68A3A", opacity: 0.92 }}>
+            Sanctum power: {currentAscension.powerName} · {currentAscension.powerDescription}
           </p>
 
           {/* XP Progress Bar */}
@@ -228,6 +283,74 @@ export default function HomePage() {
         </div>
 
         {/* Region Cards */}
+        {(weakestTopics.length > 0 || latestQuestReview) && (
+          <div
+            className="mb-10 p-6 rounded-2xl"
+            style={{ background: "#16213B", border: "1px solid #2E5A8E55" }}
+          >
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+              <div className="flex-1">
+                <h2
+                  className="text-xl font-bold mb-2"
+                  style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}
+                >
+                  Your Next Best Move
+                </h2>
+                <p className="text-sm mb-4" style={{ color: "#EADFC8", opacity: 0.72 }}>
+                  The Archive is tracking your weaker skills so the next quest can target them directly.
+                </p>
+
+                {weakestTopics.length > 0 && (
+                  <div className="space-y-2 mb-4">
+                    {weakestTopics.map((topic) => (
+                      <p key={topic.knowledgePointCode} className="text-sm" style={{ color: "#EADFC8" }}>
+                        <span style={{ color: "#E7C777" }}>{topic.knowledgePointCode}</span> · mastery level {topic.masteryLevel}
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {recommendedRegion && recommendedFocusCodes.length > 0 && (
+                  <button
+                    onClick={() => startRecommendedQuest(recommendedRegion, recommendedFocusCodes)}
+                    className="px-5 py-3 rounded-xl font-bold transition-all hover:scale-[1.02]"
+                    style={{
+                      background: "linear-gradient(135deg, #B68A3A, #E7C777)",
+                      color: "#0F1C3F",
+                    }}
+                  >
+                    Start Recommended Quest
+                  </button>
+                )}
+              </div>
+
+              {latestQuestReview && (
+                <div
+                  className="md:w-80 p-4 rounded-2xl"
+                  style={{ background: "#1E2E5A", border: "1px solid #B68A3A33" }}
+                >
+                  <p className="text-xs uppercase tracking-widest mb-2" style={{ color: "#6BA3D6" }}>
+                    Recent saved review
+                  </p>
+                  <p className="font-bold mb-1" style={{ color: "#E7C777" }}>
+                    {latestQuestReview.region}
+                  </p>
+                  <p className="text-sm mb-3" style={{ color: "#EADFC8", opacity: 0.75 }}>
+                    {latestQuestReview.correctCount} / {latestQuestReview.questionCount} correct · +{latestQuestReview.totalSparks} ✦
+                  </p>
+                  <Link
+                    href={`/quest/review/${latestQuestReview.id}`}
+                    className="inline-block px-4 py-2 rounded-xl text-sm font-semibold"
+                    style={{ background: "#0F1C3F", color: "#6BA3D6", border: "1px solid #6BA3D6" }}
+                  >
+                    Open review
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <h2
           className="text-xl font-bold mb-6"
           style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}
@@ -289,52 +412,80 @@ export default function HomePage() {
         </div>
 
         {/* Oracle Quick Access */}
-        <Link
-          href="/oracle"
-          className="block p-6 rounded-2xl transition-all duration-300 hover:scale-[1.01] hover:opacity-90"
-          style={{
-            background: "linear-gradient(135deg, #2A1E5A22, #1E2E5A)",
-            border: "1px solid #6B4AC444",
-          }}
-        >
-          <div className="flex items-center gap-4">
-            <span className="text-4xl">🔮</span>
-            <div>
-              <h3
-                className="text-lg font-bold"
-                style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}
-              >
-                Ask the Oracle
-              </h3>
-              <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.7 }}>
-                The Oracle explains any concept — in plain language, with examples
-              </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Link
+            href="/tome"
+            className="block p-6 rounded-2xl transition-all duration-300 hover:scale-[1.01] hover:opacity-90"
+            style={{
+              background: "linear-gradient(135deg, #2E5A8E22, #1E2E5A)",
+              border: "1px solid #6BA3D644",
+            }}
+          >
+            <div className="flex items-center gap-4">
+              <span className="text-4xl">📖</span>
+              <div>
+                <h3
+                  className="text-lg font-bold"
+                  style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}
+                >
+                  Mastery Report
+                </h3>
+                <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.7 }}>
+                  Check your strongest skills, weakest topics, and how close each region is to mastery.
+                </p>
+              </div>
             </div>
-          </div>
-        </Link>
+          </Link>
+
+          <Link
+            href="/tome"
+            className="block p-6 rounded-2xl transition-all duration-300 hover:scale-[1.01] hover:opacity-90"
+            style={{
+              background: "linear-gradient(135deg, #4A3612, #1E2E5A)",
+              border: "1px solid #E7C77744",
+            }}
+          >
+            <div className="flex items-center gap-4">
+              <span className="text-4xl">🏛️</span>
+              <div>
+                <h3
+                  className="text-lg font-bold"
+                  style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}
+                >
+                  Mage Ascension Hall
+                </h3>
+                <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.7 }}>
+                  See sealed forms, rank lore, sacred powers, and the next avatar waiting in the sanctum.
+                </p>
+              </div>
+            </div>
+          </Link>
+
+          <Link
+            href="/oracle"
+            className="block p-6 rounded-2xl transition-all duration-300 hover:scale-[1.01] hover:opacity-90"
+            style={{
+              background: "linear-gradient(135deg, #2A1E5A22, #1E2E5A)",
+              border: "1px solid #6B4AC444",
+            }}
+          >
+            <div className="flex items-center gap-4">
+              <span className="text-4xl">🔮</span>
+              <div>
+                <h3
+                  className="text-lg font-bold"
+                  style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}
+                >
+                  Ask the Oracle
+                </h3>
+                <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.7 }}>
+                  The Oracle explains any concept — in plain language, with examples
+                </p>
+              </div>
+            </div>
+          </Link>
+        </div>
       </main>
     </div>
   );
-}
-
-function getNextRankXP(xp: number) {
-  const thresholds = [
-    { rank: "Rune Apprentice", xp: 200 },
-    { rank: "Arcane Solver", xp: 500 },
-    { rank: "Puzzle Adept", xp: 1000 },
-    { rank: "Spell Scholar", xp: 2000 },
-    { rank: "Logic Mage", xp: 3500 },
-    { rank: "Master of the Quill", xp: 5500 },
-  ];
-  for (const t of thresholds) {
-    if (xp < t.xp) {
-      const prev = thresholds[thresholds.indexOf(t) - 1]?.xp || 0;
-      return {
-        nextRank: t.rank,
-        xpNeeded: t.xp - xp,
-        progress: (xp - prev) / (t.xp - prev),
-      };
-    }
-  }
-  return null;
 }

@@ -22,6 +22,7 @@ type FullTaskFeedback = {
   };
   nextStep?: string;
 };
+const FULL_TASK_WISDOM_BONUS = 1;
 
 export async function POST(request: NextRequest) {
   try {
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
     const feedback = parseJSON<FullTaskFeedback>(rawFeedback);
     const wordCount = writingText.split(/\s+/).filter(Boolean).length;
     const sparksEarned = calculateWritingFullTaskSparks(wordCount);
+    const wisdomEarned = FULL_TASK_WISDOM_BONUS;
 
     const profile = await prisma.profile.findUnique({
       where: { id: profileId },
@@ -108,6 +110,7 @@ export async function POST(request: NextRequest) {
         totalXP: { increment: sparksEarned },
         rank: getRank(profile.totalXP + sparksEarned),
         attrCraft: { increment: 1 },
+        attrWisdom: { increment: wisdomEarned },
       },
     });
 
@@ -128,6 +131,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       feedback,
       sparksEarned,
+      wisdomEarned,
     });
   } catch (error) {
     console.error("POST /api/writing/submit error:", error);

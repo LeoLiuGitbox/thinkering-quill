@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -664,6 +665,18 @@ function ProfileCard({
         {isExpanded ? "Hide Details ↑" : "View Details ↓"}
       </button>
 
+      <Link
+        href={`/parent/report/${profile.id}`}
+        className="mt-3 w-full block text-center py-2.5 rounded-xl text-sm font-semibold transition-all duration-200"
+        style={{
+          background: "#0F1C3F",
+          color: "#E7C777",
+          border: "1px solid #B68A3A44",
+        }}
+      >
+        Open Parent Report
+      </Link>
+
       {/* Expanded detail panel */}
       {isExpanded && (
         <ProfileDetailPanel
@@ -884,6 +897,16 @@ export default function ParentDashboardPage() {
   return (
     <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
       <main className="max-w-6xl mx-auto px-6 py-10">
+        <div className="mb-6">
+          <Link
+            href="/home"
+            className="inline-flex items-center gap-2 text-sm font-semibold transition-opacity hover:opacity-80"
+            style={{ color: "#B68A3A" }}
+          >
+            ← Back to Archive Hall
+          </Link>
+        </div>
+
         {/* Header */}
         <div className="mb-10">
           <div className="flex items-center gap-3 mb-2">

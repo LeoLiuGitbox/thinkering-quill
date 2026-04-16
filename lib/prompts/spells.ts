@@ -13,6 +13,7 @@ RULES:
 - The story must stand alone — no reference to any app or magic world
 - Tone: warm, vivid, specific. Like a story told by someone who loves their job.
 - Short — readable in 60–90 seconds.
+- Include a hidden answer key for the app. The child should still need to notice the exact reasoning step.
 
 OUTPUT: Valid JSON only. No markdown fences.`;
 }
@@ -27,6 +28,11 @@ OUTPUT FORMAT:
 {
   "title": "Short story title (5–8 words)",
   "storyText": "Full 150–200 word story...",
-  "spotQuestion": "Can you spot where ${knowledgePoint.spellName} appeared in this story?"
+  "spotQuestion": "Can you spot where ${knowledgePoint.spellName} appeared in this story?",
+  "expectedAnswer": "One sentence explaining the exact moment the skill appeared",
+  "acceptedKeywords": ["2-5 short keywords taken from the expected answer"],
+  "acceptedPhrases": ["1-3 short acceptable phrases a child might say"],
+  "successFeedback": "One short congratulatory line confirming the skill they spotted",
+  "retryFeedback": "One short hint telling them what kind of moment to re-read without giving the full answer away"
 }`;
 }

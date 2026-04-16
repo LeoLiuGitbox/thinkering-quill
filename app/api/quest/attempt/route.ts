@@ -12,29 +12,36 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
+      questSessionId,
       profileId,
       region,
       questionText,
+      passageTitle,
+      contextText,
       optionsJson,
       correctAnswer,
+      explanationText,
       userAnswer,
       firstChoice,
       knowledgePointCode,
+      microSkillCode,
       hintsUsed,
       timeSpentMs,
       minimumReadTimeMs,
-      reflectionText,
       retryCount,
       consecutiveHintAbuseCount,
     } = body;
 
-    if (!profileId || !region || !questionText || !correctAnswer) {
+    if (!questSessionId || !profileId || !region || !questionText || !correctAnswer) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const profile = await prisma.profile.findUnique({ where: { id: profileId } });
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    const [profile, questSession] = await Promise.all([
+      prisma.profile.findUnique({ where: { id: profileId } }),
+      prisma.questSession.findUnique({ where: { id: questSessionId } }),
+    ]);
+    if (!profile || !questSession || questSession.profileId !== profileId) {
+      return NextResponse.json({ error: "Profile or quest session not found" }, { status: 404 });
     }
 
     const isCorrect = userAnswer === correctAnswer;
@@ -56,12 +63,17 @@ export async function POST(request: NextRequest) {
     const attempt = await prisma.quizAttempt.create({
       data: {
         profileId,
+        questSessionId,
         region,
         knowledgePointCode,
+        microSkillCode: microSkillCode || null,
         questionHash,
         questionText,
+        passageTitle: passageTitle || null,
+        contextText: contextText || null,
         optionsJson: optionsJson || "[]",
         correctAnswer,
+        explanationText: explanationText || null,
         userAnswer: userAnswer || null,
         isCorrect,
         firstChoiceCorrect,
@@ -70,7 +82,6 @@ export async function POST(request: NextRequest) {
         sparksEarned,
         timeSpentMs: timeSpentMs || null,
         minimumReadTimeMs: minimumReadTimeMs || null,
-        reflectionText: reflectionText || null,
       },
     });
 

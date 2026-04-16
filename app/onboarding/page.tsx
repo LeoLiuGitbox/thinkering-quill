@@ -21,7 +21,7 @@ const STEPS = [
   },
   {
     title: "Your journey begins",
-    body: "You are now a Novice Scribe. With every spell mastered, your rank rises — until one day, you may become the Master of the Quill. Are you ready?",
+    body: "You are now a Novice Scribe. With every spell mastered, your rank rises through the Mage Ascension Hall — and one day, you may stand as an Eternal Luminary. Are you ready?",
     emoji: "✨",
   },
 ];

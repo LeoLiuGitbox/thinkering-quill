@@ -485,7 +485,7 @@ TARGET KNOWLEDGE POINTS: ${kpList}
 
 ${genreInstruction}
 
-Distribute questions across RC-01 through RC-09. EVERY passage must include exactly 1 RC-03 (inference) question.
+Distribute questions across the target knowledge points listed above. EVERY passage must include exactly 1 RC-03 (inference) question.
 Ensure RC-03 questions require genuine deduction — the answer must not appear verbatim in the passage.
 If the batch knowledge point mix includes RC-07, the passage must be narrative fiction or poetry.
 If the batch knowledge point mix includes RC-09, the passage must be of type "cartoon" (describe visually in prose).

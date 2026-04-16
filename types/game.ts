@@ -4,12 +4,15 @@ export type AuraAlignment = "bright" | "unstable" | "shadow_creeping" | "shadow_
 
 export type Rank =
   | "Novice Scribe"
-  | "Rune Apprentice"
+  | "Rune Reader"
   | "Arcane Solver"
-  | "Puzzle Adept"
+  | "Pattern Weaver"
+  | "Quill Adept"
+  | "Archive Guardian"
   | "Spell Scholar"
-  | "Logic Mage"
-  | "Master of the Quill";
+  | "Astral Archivist"
+  | "Grand Magus of the Quill"
+  | "Eternal Luminary";
 
 export interface ProfileData {
   id: number;
@@ -187,6 +190,58 @@ export interface QuestionState {
 
 export type SessionDifficulty = "Apprentice" | "Journeyman" | "Archmage";
 export type SessionLength = 5 | 10 | 15 | 35;
+export type QuestDifficulty = SessionDifficulty;
+export type QuestSessionStatus = "in_progress" | "completed" | "abandoned";
+
+export interface QuestSessionSummary {
+  id: number;
+  profileId: number;
+  region: Region | string;
+  sessionLength: number;
+  difficulty: QuestDifficulty;
+  status: QuestSessionStatus;
+  totalSparks: number;
+  correctCount: number;
+  questionCount: number;
+  reflectionText?: string | null;
+  startedAt: string;
+  completedAt?: string | null;
+}
+
+export interface QuestAttemptReviewItem {
+  id: number;
+  questSessionId?: number | null;
+  knowledgePointCode?: KnowledgePointCode | string | null;
+  microSkillCode?: string | null;
+  questionText: string;
+  context?: string;
+  passageTitle?: string | null;
+  options: string[];
+  userAnswer?: "A" | "B" | "C" | "D" | string | null;
+  correctAnswer: "A" | "B" | "C" | "D" | string;
+  isCorrect: boolean;
+  explanation: string;
+  hintsUsed: number;
+  timeSpentMs?: number | null;
+  minimumReadTimeMs?: number | null;
+  attemptedAt: string;
+}
+
+export interface WeakPointSummary {
+  code: KnowledgePointCode | string;
+  label: string;
+  masteryLevel: MasteryLevel;
+  masteryScore?: number;
+  recentWrongCount?: number;
+  recommended: boolean;
+}
+
+export interface QuestReviewPayload {
+  session: QuestSessionSummary;
+  attempts: QuestAttemptReviewItem[];
+  weakKnowledgePoints: WeakPointSummary[];
+  recommendedNextFocus: WeakPointSummary[];
+}
 
 // ─── Sparks Economy ───────────────────────────────────────────────────────────
 
@@ -206,12 +261,15 @@ export const SPARKS = {
 
 export const RANK_THRESHOLDS: { rank: Rank; xpRequired: number }[] = [
   { rank: "Novice Scribe", xpRequired: 0 },
-  { rank: "Rune Apprentice", xpRequired: 200 },
-  { rank: "Arcane Solver", xpRequired: 500 },
-  { rank: "Puzzle Adept", xpRequired: 1000 },
-  { rank: "Spell Scholar", xpRequired: 2000 },
-  { rank: "Logic Mage", xpRequired: 3500 },
-  { rank: "Master of the Quill", xpRequired: 5500 },
+  { rank: "Rune Reader", xpRequired: 150 },
+  { rank: "Arcane Solver", xpRequired: 450 },
+  { rank: "Pattern Weaver", xpRequired: 900 },
+  { rank: "Quill Adept", xpRequired: 1500 },
+  { rank: "Archive Guardian", xpRequired: 2300 },
+  { rank: "Spell Scholar", xpRequired: 3300 },
+  { rank: "Astral Archivist", xpRequired: 4600 },
+  { rank: "Grand Magus of the Quill", xpRequired: 6200 },
+  { rank: "Eternal Luminary", xpRequired: 8200 },
 ];
 
 // ─── Integrity ────────────────────────────────────────────────────────────────

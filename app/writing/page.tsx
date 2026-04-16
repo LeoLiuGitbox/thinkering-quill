@@ -62,8 +62,12 @@ type WritingCoachingFeedback = {
   strength: string;
   priorityIssue: string;
   revisionInstruction: string;
+  quotedOriginalSnippet?: string;
+  revisedSnippet?: string;
+  topicConnection?: string;
   modelExample?: string;
   nextStep?: string;
+  improvedDraft?: string;
   rubricSummary?: {
     promptRelevance?: string;
     ideas?: string;
@@ -107,47 +111,23 @@ const SKILL_GROUPS: SkillGroup[] = [
       { code: "voice_and_tone", label: "Voice & Tone", summary: "Keep a consistent narrator voice and emotional register.", guidedOnly: true },
     ],
   },
-  // Narrative skills
   {
-    code: "narrative_structure",
-    label: "Narrative Structure",
-    summary: "Plan a clear 4–5 paragraph story arc within the time limit.",
+    group: "Advanced Narrative",
+    skills: [
+      { code: "narrative_structure", label: "Narrative Structure", summary: "Plan a clear 4–5 paragraph story arc within the time limit.", guidedOnly: true },
+      { code: "main_event", label: "Main Event (Climax)", summary: "Develop one clear climax — the single moment everything leads to.", guidedOnly: true },
+    ],
   },
   {
-    code: "main_event",
-    label: "Main Event (Climax)",
-    summary: "Develop one clear climax — the single moment everything leads to.",
-  },
-  // Persuasive / writing craft skills
-  {
-    code: "persuasive_structure",
-    label: "Persuasive Writing",
-    summary: "Write a persuasive or discussion piece using TEEL structure.",
-  },
-  {
-    code: "teel_framework",
-    label: "TEEL Paragraph",
-    summary: "Write one argument using Topic, Explanation, Evidence, Link.",
-  },
-  {
-    code: "argument_dimensions",
-    label: "3-Dimension Arguments",
-    summary: "Generate strong arguments across Individual, Social, and Broader.",
-  },
-  {
-    code: "counter_argument",
-    label: "Counter-Argument",
-    summary: "Acknowledge the opposing view and rebut it in 2 sentences.",
-  },
-  {
-    code: "writing_time_plan",
-    label: "Time Management",
-    summary: "Use the 25–60–15 rule to plan, write, and review on time.",
-  },
-  {
-    code: "prompt_analysis",
-    label: "Prompt Analysis",
-    summary: "Break down any prompt in 4 steps before you write.",
+    group: "Persuasive Craft",
+    skills: [
+      { code: "persuasive_structure", label: "Persuasive Writing", summary: "Write a persuasive or discussion piece using TEEL structure." },
+      { code: "teel_framework", label: "TEEL Paragraph", summary: "Write one argument using Topic, Explanation, Evidence, Link." },
+      { code: "argument_dimensions", label: "3-Dimension Arguments", summary: "Generate strong arguments across Individual, Social, and Broader." },
+      { code: "counter_argument", label: "Counter-Argument", summary: "Acknowledge the opposing view and rebut it in 2 sentences." },
+      { code: "writing_time_plan", label: "Time Management", summary: "Use the 25–60–15 rule to plan, write, and review on time." },
+      { code: "prompt_analysis", label: "Prompt Analysis", summary: "Break down any prompt in 4 steps before you write." },
+    ],
   },
 ];
 
@@ -162,6 +142,154 @@ function formatTime(seconds: number) {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+function tokenizeForDiff(text: string) {
+  return text.match(/\s+|[^\s]+/g) ?? [];
+}
+
+function buildLcsTable(a: string[], b: string[]) {
+  const dp = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) {
+      dp[i][j] = a[i] === b[j]
+        ? dp[i + 1][j + 1] + 1
+        : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  return dp;
+}
+
+function diffTokens(original: string, improved: string) {
+  const a = tokenizeForDiff(original);
+  const b = tokenizeForDiff(improved);
+  const dp = buildLcsTable(a, b);
+  const originalParts: Array<{ text: string; changed: boolean }> = [];
+  const improvedParts: Array<{ text: string; changed: boolean }> = [];
+
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      originalParts.push({ text: a[i], changed: false });
+      improvedParts.push({ text: b[j], changed: false });
+      i++;
+      j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      originalParts.push({ text: a[i], changed: true });
+      i++;
+    } else {
+      improvedParts.push({ text: b[j], changed: true });
+      j++;
+    }
+  }
+
+  while (i < a.length) {
+    originalParts.push({ text: a[i], changed: true });
+    i++;
+  }
+  while (j < b.length) {
+    improvedParts.push({ text: b[j], changed: true });
+    j++;
+  }
+
+  return { originalParts, improvedParts };
+}
+
+function renderDiffText(parts: Array<{ text: string; changed: boolean }>, colors: { base: string; changedBg: string; changedText: string }) {
+  return parts.map((part, index) => (
+    <span
+      key={`${part.text}-${index}`}
+      style={part.changed
+        ? {
+            background: colors.changedBg,
+            color: colors.changedText,
+            borderRadius: "0.35rem",
+            padding: "0.08rem 0.14rem",
+            fontWeight: 700,
+            boxShadow: `0 0 0 1px ${colors.changedText}33`,
+          }
+        : { color: colors.base }}
+    >
+      {part.text}
+    </span>
+  ));
+}
+
+function renderCoachText(text: string, tone: "default" | "quote" = "default") {
+  const blocks = text
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  const baseStyle = {
+    color: "#EADFC8",
+    fontFamily: "Georgia, serif",
+    fontSize: "1.125rem",
+    lineHeight: 1.8,
+  } as const;
+
+  const quoteStyle = tone === "quote"
+    ? {
+        paddingLeft: "1rem",
+        borderLeft: "3px solid rgba(231, 199, 119, 0.45)",
+        fontStyle: "italic" as const,
+      }
+    : undefined;
+
+  return (
+    <div className="space-y-3">
+      {blocks.map((block, blockIndex) => {
+        const lines = block
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean);
+
+        const bulletLines = lines.filter((line) => /^[-*]\s+/.test(line));
+        const numberedLines = lines.filter((line) => /^\d+\.\s+/.test(line));
+        const isBulletList = bulletLines.length === lines.length && lines.length > 0;
+        const isNumberedList = numberedLines.length === lines.length && lines.length > 0;
+
+        if (isBulletList) {
+          return (
+            <ul
+              key={`block-${blockIndex}`}
+              className="space-y-2 pl-5 list-disc"
+              style={baseStyle}
+            >
+              {lines.map((line, lineIndex) => (
+                <li key={`line-${lineIndex}`}>{line.replace(/^[-*]\s+/, "")}</li>
+              ))}
+            </ul>
+          );
+        }
+
+        if (isNumberedList) {
+          return (
+            <ol
+              key={`block-${blockIndex}`}
+              className="space-y-2 pl-5 list-decimal"
+              style={baseStyle}
+            >
+              {lines.map((line, lineIndex) => (
+                <li key={`line-${lineIndex}`}>{line.replace(/^\d+\.\s+/, "")}</li>
+              ))}
+            </ol>
+          );
+        }
+
+        return (
+          <p
+            key={`block-${blockIndex}`}
+            className="whitespace-pre-wrap"
+            style={{ ...baseStyle, ...quoteStyle }}
+          >
+            {block}
+          </p>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function WritingPage() {
@@ -183,7 +311,9 @@ export default function WritingPage() {
   const [feedback, setFeedback] = useState<WritingCoachingFeedback | null>(null);
   const [completionMessage, setCompletionMessage] = useState("");
   const [sparksEarned, setSparksEarned] = useState(0);
+  const [wisdomEarned, setWisdomEarned] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [modePreparationLabel, setModePreparationLabel] = useState("");
   const [error, setError] = useState("");
 
   const [timeRemaining, setTimeRemaining] = useState(FULL_TASK_TIMER_SECONDS);
@@ -238,7 +368,9 @@ export default function WritingPage() {
     setFeedback(null);
     setCompletionMessage("");
     setSparksEarned(0);
+    setWisdomEarned(0);
     setLoading(false);
+    setModePreparationLabel("");
     setError("");
     setTimeRemaining(FULL_TASK_TIMER_SECONDS);
     setTimerRunning(false);
@@ -248,6 +380,7 @@ export default function WritingPage() {
     if (!profile) return;
 
     setLoading(true);
+    setModePreparationLabel(mode === "guided_writing" ? "Preparing Guided Writing…" : "Preparing Quick Skill Drill…");
     setError("");
 
     try {
@@ -277,6 +410,7 @@ export default function WritingPage() {
       setError(err instanceof Error ? err.message : "Failed to load writing lesson");
     } finally {
       setLoading(false);
+      setModePreparationLabel("");
     }
   }
 
@@ -284,6 +418,7 @@ export default function WritingPage() {
     if (!profile) return;
 
     setLoading(true);
+    setModePreparationLabel("Preparing Full Writing Task…");
     setError("");
 
     try {
@@ -312,6 +447,7 @@ export default function WritingPage() {
       setError(err instanceof Error ? err.message : "Failed to load full writing task");
     } finally {
       setLoading(false);
+      setModePreparationLabel("");
     }
   }
 
@@ -378,6 +514,7 @@ export default function WritingPage() {
       if (!response.ok) throw new Error(data.error || "Failed to save revision");
 
       setSparksEarned(data.sparksEarned || 0);
+      setWisdomEarned(data.wisdomEarned || 0);
       setCompletionMessage(data.completionMessage || "Revision complete.");
       setPhase("complete");
     } catch (err) {
@@ -413,6 +550,7 @@ export default function WritingPage() {
 
       setFeedback(data.feedback);
       setSparksEarned(data.sparksEarned || 0);
+      setWisdomEarned(data.wisdomEarned || 0);
       setCompletionMessage(
         "Stage review complete. Keep the revision instruction in mind the next time you write a full piece."
       );
@@ -441,7 +579,7 @@ export default function WritingPage() {
     return (
       <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
         <GameNav profile={profile} />
-        <main className="max-w-4xl mx-auto px-6 py-12">
+        <main className="max-w-4xl mx-auto px-6 py-12 relative">
           <div className="text-center mb-10">
             <div className="text-7xl mb-5">✍️</div>
             <h1
@@ -480,10 +618,13 @@ export default function WritingPage() {
                       <button
                         key={skill.code}
                         onClick={() => setSelectedSkill(skill.code)}
+                        disabled={loading}
                         className="rounded-2xl p-4 text-left transition-all hover:scale-[1.01]"
                         style={{
                           background: isActive ? "#24386A" : "#1A2545",
                           border: `1px solid ${isActive ? "#E7C777" : "#B68A3A33"}`,
+                          opacity: loading ? 0.55 : 1,
+                          cursor: loading ? "not-allowed" : "pointer",
                         }}
                       >
                         <div className="flex items-start justify-between gap-2 mb-1">
@@ -566,6 +707,36 @@ export default function WritingPage() {
               </p>
             </button>
           </section>
+
+          {loading && (
+            <div
+              className="absolute inset-0 flex items-center justify-center rounded-3xl"
+              style={{
+                background: "rgba(15, 28, 63, 0.82)",
+                backdropFilter: "blur(3px)",
+                zIndex: 20,
+              }}
+            >
+              <div
+                className="px-8 py-7 rounded-3xl text-center max-w-md"
+                style={{ background: "#1E2E5A", border: "1px solid #B68A3A44" }}
+              >
+                <div
+                  className="text-5xl mb-4"
+                  style={{ display: "inline-block", animation: "writing-mode-spin 1.4s linear infinite" }}
+                >
+                  📜
+                </div>
+                <p className="text-2xl font-bold mb-2" style={{ color: "#E7C777" }}>
+                  {modePreparationLabel || "Preparing Writing Session…"}
+                </p>
+                <p style={{ color: "#EADFC8", opacity: 0.82, lineHeight: 1.7 }}>
+                  The page is locked while the workshop prepares your challenge.
+                </p>
+              </div>
+              <style>{`@keyframes writing-mode-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+            </div>
+          )}
         </main>
       </div>
     );
@@ -575,7 +746,7 @@ export default function WritingPage() {
     return (
       <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
         <GameNav profile={profile} />
-        <main className="max-w-3xl mx-auto px-6 py-10">
+        <main className="max-w-4xl mx-auto px-6 py-10">
           {renderError()}
           <div
             className="rounded-3xl p-6 mb-6"
@@ -587,10 +758,10 @@ export default function WritingPage() {
             <h1 className="text-3xl font-bold mb-3" style={{ color: "#E7C777" }}>
               {lessonData.title}
             </h1>
-            <p className="text-base mb-4" style={{ color: "#EADFC8", opacity: 0.84 }}>
+            <p className="text-xl mb-4" style={{ color: "#EADFC8", opacity: 0.84, lineHeight: 1.7 }}>
               {lessonData.focus}
             </p>
-            <p className="text-sm leading-relaxed" style={{ color: "#EADFC8", opacity: 0.78 }}>
+            <p className="text-lg leading-relaxed" style={{ color: "#EADFC8", opacity: 0.78 }}>
               {lessonData.teachingPoint}
             </p>
           </div>
@@ -603,7 +774,7 @@ export default function WritingPage() {
               <p className="text-sm font-bold mb-2" style={{ color: "#7DDB8D" }}>
                 Strong Example
               </p>
-              <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}>
+              <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif", fontSize: "1.125rem", lineHeight: 1.8 }}>
                 {lessonData.strongExample}
               </p>
             </div>
@@ -614,7 +785,7 @@ export default function WritingPage() {
               <p className="text-sm font-bold mb-2" style={{ color: "#F5A39A" }}>
                 Weak Example
               </p>
-              <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}>
+              <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif", fontSize: "1.125rem", lineHeight: 1.8 }}>
                 {lessonData.weakExample}
               </p>
             </div>
@@ -630,7 +801,7 @@ export default function WritingPage() {
               </p>
               <ol className="space-y-2">
                 {lessonData.scaffoldNotes.map((step, i) => (
-                  <li key={i} className="flex gap-3 text-sm" style={{ color: "#EADFC8" }}>
+                  <li key={i} className="flex gap-3 text-base" style={{ color: "#EADFC8" }}>
                     <span
                       className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
                       style={{ background: "#2E5A8E", color: "#EADFC8" }}
@@ -651,10 +822,10 @@ export default function WritingPage() {
             <p className="text-sm font-bold mb-2" style={{ color: "#E7C777" }}>
               Your Task
             </p>
-            <p className="mb-4" style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}>
+            <p className="mb-4" style={{ color: "#EADFC8", fontFamily: "Georgia, serif", fontSize: "1.2rem", lineHeight: 1.8 }}>
               {lessonData.taskPrompt}
             </p>
-            <p className="text-sm" style={{ color: "#B68A3A" }}>
+            <p className="text-base" style={{ color: "#B68A3A", lineHeight: 1.7 }}>
               Revision goal: {lessonData.revisionGoal}
             </p>
           </div>
@@ -687,7 +858,7 @@ export default function WritingPage() {
     return (
       <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
         <GameNav profile={profile} />
-        <main className="max-w-3xl mx-auto px-6 py-10">
+        <main className="max-w-4xl mx-auto px-6 py-10 relative">
           {renderError()}
           <div className="mb-5">
             <p className="text-xs uppercase tracking-[0.25em] mb-2" style={{ color: "#B68A3A" }}>
@@ -696,7 +867,7 @@ export default function WritingPage() {
             <h1 className="text-2xl font-bold mb-3" style={{ color: "#E7C777" }}>
               {lessonData.title}
             </h1>
-            <p style={{ color: "#EADFC8", opacity: 0.82 }}>{lessonData.taskPrompt}</p>
+            <p style={{ color: "#EADFC8", opacity: 0.82, fontSize: "1.2rem", lineHeight: 1.8 }}>{lessonData.taskPrompt}</p>
           </div>
 
           {selectedMode === "guided_writing" && lessonData.scaffoldNotes && lessonData.scaffoldNotes.length > 0 && (
@@ -709,7 +880,7 @@ export default function WritingPage() {
               </p>
               <ol className="space-y-1.5">
                 {lessonData.scaffoldNotes.map((step, i) => (
-                  <li key={i} className="flex gap-2.5 text-sm" style={{ color: "#EADFC8", opacity: 0.88 }}>
+                  <li key={i} className="flex gap-2.5 text-base" style={{ color: "#EADFC8", opacity: 0.88 }}>
                     <span
                       className="flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
                       style={{ background: "#2E5A8E", color: "#EADFC8" }}
@@ -728,12 +899,17 @@ export default function WritingPage() {
             onChange={(e) => setDraftText(e.target.value)}
             placeholder="Write your first draft here..."
             className="w-full rounded-3xl p-6 resize-none outline-none"
+            disabled={loading}
             style={{
               minHeight: "380px",
-              background: "#1A2545",
+              background: loading ? "#16213B" : "#1A2545",
               border: "1px solid #B68A3A33",
               color: "#EADFC8",
               fontFamily: "Georgia, serif",
+              fontSize: "1.2rem",
+              lineHeight: 1.8,
+              opacity: loading ? 0.55 : 1,
+              cursor: loading ? "not-allowed" : "text",
             }}
           />
 
@@ -748,19 +924,52 @@ export default function WritingPage() {
                 color: "#0F1C3F",
               }}
             >
-              Get Coaching
+              {loading ? "Preparing Coaching…" : "Get Coaching"}
             </button>
           </div>
+
+          {loading && (
+            <div
+              className="absolute inset-0 flex items-center justify-center rounded-3xl"
+              style={{
+                background: "rgba(15, 28, 63, 0.78)",
+                backdropFilter: "blur(2px)",
+              }}
+            >
+              <div
+                className="px-8 py-6 rounded-3xl text-center"
+                style={{ background: "#1E2E5A", border: "1px solid #B68A3A44" }}
+              >
+                <div
+                  className="text-5xl mb-4"
+                  style={{ display: "inline-block", animation: "writing-spin 1.4s linear infinite" }}
+                >
+                  🔮
+                </div>
+                <p className="text-xl font-bold mb-2" style={{ color: "#E7C777" }}>
+                  Getting Coaching…
+                </p>
+                <p style={{ color: "#EADFC8", opacity: 0.8 }}>
+                  Your draft is locked while the coach prepares feedback.
+                </p>
+              </div>
+              <style>{`@keyframes writing-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+            </div>
+          )}
         </main>
       </div>
     );
   }
 
   if (phase === "coaching" && feedback) {
+    const comparison = feedback.improvedDraft
+      ? diffTokens(draftText, feedback.improvedDraft)
+      : null;
+
     return (
       <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
         <GameNav profile={profile} />
-        <main className="max-w-3xl mx-auto px-6 py-10">
+        <main className="max-w-5xl mx-auto px-6 py-10">
           {renderError()}
           <div className="text-center mb-8">
             <div className="text-6xl mb-4">🔮</div>
@@ -780,7 +989,7 @@ export default function WritingPage() {
               <p className="text-sm font-bold mb-2" style={{ color: "#7DDB8D" }}>
                 Strength
               </p>
-              <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}>{feedback.strength}</p>
+              {renderCoachText(feedback.strength)}
             </div>
 
             <div
@@ -790,9 +999,7 @@ export default function WritingPage() {
               <p className="text-sm font-bold mb-2" style={{ color: "#E7C777" }}>
                 Priority Issue
               </p>
-              <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}>
-                {feedback.priorityIssue}
-              </p>
+              {renderCoachText(feedback.priorityIssue)}
             </div>
 
             <div
@@ -802,10 +1009,48 @@ export default function WritingPage() {
               <p className="text-sm font-bold mb-2" style={{ color: "#E7C777" }}>
                 Revision Instruction
               </p>
-              <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}>
-                {feedback.revisionInstruction}
-              </p>
+              {renderCoachText(feedback.revisionInstruction)}
             </div>
+
+            {(feedback.quotedOriginalSnippet || feedback.revisedSnippet || feedback.topicConnection) && (
+              <div className="grid gap-4 lg:grid-cols-3">
+                {feedback.quotedOriginalSnippet && (
+                  <div
+                    className="rounded-2xl p-5"
+                    style={{ background: "#3A1F1F", border: "1px solid #C84B31" }}
+                  >
+                    <p className="text-sm font-bold mb-2" style={{ color: "#F5A39A" }}>
+                      From Your Draft
+                    </p>
+                    {renderCoachText(feedback.quotedOriginalSnippet, "quote")}
+                  </div>
+                )}
+
+                {feedback.revisedSnippet && (
+                  <div
+                    className="rounded-2xl p-5"
+                    style={{ background: "#17361E", border: "1px solid #2E6B3A" }}
+                  >
+                    <p className="text-sm font-bold mb-2" style={{ color: "#7DDB8D" }}>
+                      Better Version
+                    </p>
+                    {renderCoachText(feedback.revisedSnippet, "quote")}
+                  </div>
+                )}
+
+                {feedback.topicConnection && (
+                  <div
+                    className="rounded-2xl p-5"
+                    style={{ background: "#1A2545", border: "1px solid #B68A3A33" }}
+                  >
+                    <p className="text-sm font-bold mb-2" style={{ color: "#B68A3A" }}>
+                      Why This Fits the Topic Better
+                    </p>
+                    {renderCoachText(feedback.topicConnection)}
+                  </div>
+                )}
+              </div>
+            )}
 
             {feedback.modelExample && (
               <div
@@ -815,12 +1060,52 @@ export default function WritingPage() {
                 <p className="text-sm font-bold mb-2" style={{ color: "#B68A3A" }}>
                   Model Example
                 </p>
-                <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}>
-                  {feedback.modelExample}
-                </p>
+                {renderCoachText(feedback.modelExample, "quote")}
               </div>
             )}
           </div>
+
+          {comparison && (
+            <div className="grid gap-5 lg:grid-cols-2 mb-8">
+              <div
+                className="rounded-3xl p-5"
+                style={{ background: "#1A2545", border: "1px solid #B68A3A33" }}
+              >
+                <p className="text-sm font-bold mb-3" style={{ color: "#E7C777" }}>
+                  Your Draft
+                </p>
+                <p
+                  className="text-base whitespace-pre-wrap"
+                  style={{ color: "#EADFC8", fontFamily: "Georgia, serif", lineHeight: 1.85 }}
+                >
+                  {renderDiffText(comparison.originalParts, {
+                    base: "#EADFC8",
+                    changedBg: "#5A2430",
+                    changedText: "#FFD2D2",
+                  })}
+                </p>
+              </div>
+
+              <div
+                className="rounded-3xl p-5"
+                style={{ background: "#17361E", border: "1px solid #2E6B3A" }}
+              >
+                <p className="text-sm font-bold mb-3" style={{ color: "#7DDB8D" }}>
+                  Coach’s Revision
+                </p>
+                <p
+                  className="text-base whitespace-pre-wrap"
+                  style={{ color: "#EADFC8", fontFamily: "Georgia, serif", lineHeight: 1.85 }}
+                >
+                  {renderDiffText(comparison.improvedParts, {
+                    base: "#EADFC8",
+                    changedBg: "#2E6B3A",
+                    changedText: "#E6FFE9",
+                  })}
+                </p>
+              </div>
+            </div>
+          )}
 
           <button
             onClick={() => setPhase("draft_2")}
@@ -852,8 +1137,8 @@ export default function WritingPage() {
                 Draft 1
               </p>
               <p
-                className="text-sm whitespace-pre-wrap"
-                style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}
+                className="text-base whitespace-pre-wrap"
+                style={{ color: "#EADFC8", fontFamily: "Georgia, serif", lineHeight: 1.85 }}
               >
                 {draftText}
               </p>
@@ -867,7 +1152,7 @@ export default function WritingPage() {
                 <p className="text-sm font-bold mb-2" style={{ color: "#E7C777" }}>
                   Revise toward this goal
                 </p>
-                <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}>
+                <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif", fontSize: "1.125rem", lineHeight: 1.8 }}>
                   {feedback.revisionInstruction}
                 </p>
               </div>
@@ -883,6 +1168,8 @@ export default function WritingPage() {
                   border: "1px solid #B68A3A33",
                   color: "#EADFC8",
                   fontFamily: "Georgia, serif",
+                  fontSize: "1.2rem",
+                  lineHeight: 1.8,
                 }}
               />
 
@@ -938,7 +1225,7 @@ export default function WritingPage() {
           >
             <p
               className="text-lg italic"
-              style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}
+              style={{ color: "#E7C777", fontFamily: "Georgia, serif", fontSize: "1.5rem", lineHeight: 1.7 }}
             >
               &ldquo;{sceneData.promptCue}&rdquo;
             </p>
@@ -1008,19 +1295,21 @@ export default function WritingPage() {
           </div>
         </div>
 
-        <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-6 flex flex-col">
+        <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-6 flex flex-col">
           {renderError()}
           <textarea
             value={fullTaskText}
             onChange={(e) => setFullTaskText(e.target.value)}
             placeholder="Write your full piece here..."
-            className="flex-1 w-full p-6 rounded-2xl outline-none resize-none text-base leading-relaxed"
+            className="flex-1 w-full p-6 rounded-2xl outline-none resize-none text-lg leading-relaxed"
             style={{
               background: "#1A2545",
               border: "1px solid #B68A3A44",
               color: "#EADFC8",
               fontFamily: "Georgia, serif",
               minHeight: "420px",
+              fontSize: "1.2rem",
+              lineHeight: 1.9,
             }}
           />
 
@@ -1049,7 +1338,7 @@ export default function WritingPage() {
     return (
       <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
         <GameNav profile={profile} />
-        <main className="max-w-3xl mx-auto px-6 py-10">
+        <main className="max-w-4xl mx-auto px-6 py-10">
           {renderError()}
           <div className="text-center mb-8">
             <div className="text-6xl mb-4">✨</div>
@@ -1059,6 +1348,11 @@ export default function WritingPage() {
             {sparksEarned > 0 && (
               <p className="text-4xl font-bold mb-2" style={{ color: "#E7C777" }}>
                 +{sparksEarned} ✦
+              </p>
+            )}
+            {wisdomEarned > 0 && (
+              <p className="text-lg font-bold mb-2" style={{ color: "#C4A44A" }}>
+                +{wisdomEarned} Wisdom
               </p>
             )}
             <p style={{ color: "#EADFC8", opacity: 0.8 }}>{completionMessage}</p>
@@ -1073,7 +1367,7 @@ export default function WritingPage() {
                 <p className="text-sm font-bold mb-2" style={{ color: "#7DDB8D" }}>
                   Strength
                 </p>
-                <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}>{feedback.strength}</p>
+                {renderCoachText(feedback.strength)}
               </div>
 
               <div
@@ -1083,9 +1377,7 @@ export default function WritingPage() {
                 <p className="text-sm font-bold mb-2" style={{ color: "#E7C777" }}>
                   Priority Issue
                 </p>
-                <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}>
-                  {feedback.priorityIssue}
-                </p>
+                {renderCoachText(feedback.priorityIssue)}
               </div>
 
               <div
@@ -1095,9 +1387,7 @@ export default function WritingPage() {
                 <p className="text-sm font-bold mb-2" style={{ color: "#E7C777" }}>
                   Revision Instruction
                 </p>
-                <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}>
-                  {feedback.revisionInstruction}
-                </p>
+                {renderCoachText(feedback.revisionInstruction)}
               </div>
 
               {feedback.modelExample && (
@@ -1108,9 +1398,7 @@ export default function WritingPage() {
                   <p className="text-sm font-bold mb-2" style={{ color: "#B68A3A" }}>
                     Model Example
                   </p>
-                  <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}>
-                    {feedback.modelExample}
-                  </p>
+                  {renderCoachText(feedback.modelExample, "quote")}
                 </div>
               )}
 

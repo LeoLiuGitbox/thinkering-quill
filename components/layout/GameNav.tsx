@@ -29,6 +29,7 @@ const AURA_ICON: Record<string, string> = {
 
 const NAV_ITEMS = [
   { href: "/home", label: "Archive Hall", icon: "🏛️" },
+  { href: "/hall", label: "Mage Hall", icon: "🏰" },
   { href: "/map", label: "World Map", icon: "🗺️" },
   { href: "/oracle", label: "Oracle", icon: "🔮" },
   { href: "/tome", label: "Wizard's Tome", icon: "📖" },
@@ -42,32 +43,67 @@ export default function GameNav({ profile: profileRaw }: { profile?: any }) {
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  const inActiveQuest = Boolean(pathname?.startsWith("/quest/") && pathname?.endsWith("/play"));
+  const inActiveTournament = Boolean(pathname?.startsWith("/tournament/") && pathname !== "/tournament");
+  const inProtectedRun = inActiveQuest || inActiveTournament;
+  const challengeLabel = inActiveTournament ? "tournament" : "quest";
+
+  function closeMenus() {
+    setMenuOpen(false);
+  }
+
+  function requestNavigation(href: string) {
+    if (href === pathname) {
+      closeMenus();
+      return;
+    }
+
+    if (inProtectedRun) {
+      setPendingHref(href);
+      closeMenus();
+      return;
+    }
+
+    closeMenus();
+    router.push(href);
+  }
+
+  function abandonAndNavigate() {
+    const target = pendingHref;
+    setPendingHref(null);
+    sessionStorage.removeItem("questParams");
+    if (!target) return;
+    router.push(target);
+  }
 
   return (
-    <nav
-      className="sticky top-0 z-50 flex items-center justify-between px-6 py-3 border-b"
-      style={{
-        background: "#0F1C3F",
-        borderColor: "#B68A3A44",
-        backdropFilter: "blur(10px)",
-      }}
-    >
+    <>
+      <nav
+        className="sticky top-0 z-50 flex items-center justify-between px-6 py-3 border-b"
+        style={{
+          background: "#0F1C3F",
+          borderColor: "#B68A3A44",
+          backdropFilter: "blur(10px)",
+        }}
+      >
       {/* Logo */}
-      <Link
-        href="/home"
+      <button
+        onClick={() => requestNavigation("/home")}
         className="flex items-center gap-2 text-lg font-bold transition-opacity hover:opacity-80"
         style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}
       >
         <span className="text-2xl">🪶</span>
         <span className="hidden sm:inline">Thinkering Quill</span>
-      </Link>
+      </button>
 
       {/* Desktop Nav */}
       <div className="hidden md:flex items-center gap-1">
         {NAV_ITEMS.map((item) => (
-          <Link
+          <button
             key={item.href}
-            href={item.href}
+            onClick={() => requestNavigation(item.href)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-all duration-200 hover:opacity-100"
             style={{
               color: pathname === item.href ? "#E7C777" : "#EADFC8",
@@ -77,7 +113,7 @@ export default function GameNav({ profile: profileRaw }: { profile?: any }) {
           >
             <span>{item.icon}</span>
             <span>{item.label}</span>
-          </Link>
+          </button>
         ))}
       </div>
 
@@ -132,41 +168,45 @@ export default function GameNav({ profile: profileRaw }: { profile?: any }) {
                 className="absolute top-14 right-4 rounded-xl shadow-xl z-50 p-2 min-w-48"
                 style={{ background: "#1E2E5A", border: "1px solid #B68A3A" }}
               >
-                <Link
-                  href="/tome"
+                <button
+                  onClick={() => requestNavigation("/hall")}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition"
                   style={{ color: "#EADFC8" }}
-                  onClick={() => setMenuOpen(false)}
+                >
+                  🏰 Mage Hall
+                </button>
+                <button
+                  onClick={() => requestNavigation("/tome")}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition w-full text-left"
+                  style={{ color: "#EADFC8" }}
                 >
                   📖 Wizard&apos;s Tome
-                </Link>
-                <Link
-                  href="/vault"
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition"
+                </button>
+                <button
+                  onClick={() => requestNavigation("/vault")}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition w-full text-left"
                   style={{ color: "#EADFC8" }}
-                  onClick={() => setMenuOpen(false)}
                 >
                   💎 Artifact Vault
-                </Link>
-                <Link
-                  href="/parent"
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition"
+                </button>
+                <button
+                  onClick={() => requestNavigation("/parent")}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition w-full text-left"
                   style={{ color: "#EADFC8" }}
-                  onClick={() => setMenuOpen(false)}
                 >
                   👁️ Parent Dashboard
-                </Link>
-                <Link
-                  href="/settings"
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition"
+                </button>
+                <button
+                  onClick={() => requestNavigation("/settings")}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-white/5 transition w-full text-left"
                   style={{ color: "#EADFC8" }}
-                  onClick={() => setMenuOpen(false)}
                 >
                   ⚙️ AI Settings
-                </Link>
+                </button>
                 <hr style={{ borderColor: "#B68A3A22", margin: "4px 0" }} />
                 <button
                   onClick={() => {
+                    closeMenus();
                     localStorage.removeItem("activeProfileId");
                     localStorage.removeItem("activeProfileName");
                     router.push("/login");
@@ -198,18 +238,57 @@ export default function GameNav({ profile: profileRaw }: { profile?: any }) {
           style={{ background: "#0F1C3F", borderColor: "#B68A3A44" }}
         >
           {NAV_ITEMS.map((item) => (
-            <Link
+            <button
               key={item.href}
-              href={item.href}
+              onClick={() => requestNavigation(item.href)}
               className="flex items-center gap-2 px-3 py-3 rounded-lg text-sm transition-all"
-              style={{ color: "#EADFC8" }}
-              onClick={() => setMenuOpen(false)}
+              style={{ color: "#EADFC8", width: "100%", textAlign: "left" }}
             >
               {item.icon} {item.label}
-            </Link>
+            </button>
           ))}
         </div>
       )}
-    </nav>
+      </nav>
+
+      {pendingHref && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center px-6"
+          style={{ background: "rgba(15, 28, 63, 0.84)", backdropFilter: "blur(3px)" }}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl p-6"
+            style={{ background: "#1A2545", border: "1px solid #C84B31" }}
+          >
+            <p className="text-xs uppercase tracking-[0.22em] mb-2" style={{ color: "#F5A39A" }}>
+              Leave Active {challengeLabel === "quest" ? "Quest" : "Tournament"}
+            </p>
+            <h2 className="text-2xl font-bold mb-3" style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}>
+              Continue this {challengeLabel} or abandon it?
+            </h2>
+            <p className="mb-6" style={{ color: "#EADFC8", lineHeight: 1.75 }}>
+              The current {challengeLabel} is still in progress. If you leave through the Hall navigation now, this run
+              will be treated as abandoned.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPendingHref(null)}
+                className="flex-1 rounded-xl py-3 font-bold"
+                style={{ border: "1px solid #B68A3A55", color: "#E7C777" }}
+              >
+                Return to {challengeLabel}
+              </button>
+              <button
+                onClick={abandonAndNavigate}
+                className="flex-1 rounded-xl py-3 font-bold"
+                style={{ background: "#C84B31", color: "#FDF1E1" }}
+              >
+                Abandon and leave
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

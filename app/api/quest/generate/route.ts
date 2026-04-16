@@ -11,6 +11,7 @@ import {
   buildRCBatchPrompt,
 } from "@/lib/prompts/mcq";
 import {
+  ALL_KNOWLEDGE_POINTS,
   KnowledgePointCode,
   SessionLength,
   SessionDifficulty,
@@ -18,15 +19,72 @@ import {
   RC_KNOWLEDGE_POINTS,
 } from "@/types/game";
 import { PAPER_FOLDING_QUESTIONS } from "@/lib/staticQuestions/paperFolding";
+import { TopicAllocation } from "@/lib/session";
+import { getDefaultMicroSkillCode } from "@/lib/knowledge/microSkills";
+
+function buildTargetedAllocation(params: {
+  focusKnowledgePointCodes: KnowledgePointCode[];
+  sessionLength: SessionLength;
+  familiar: TopicAllocation[];
+  challenge: TopicAllocation[];
+}): { familiar: TopicAllocation[]; challenge: TopicAllocation[] } {
+  const { focusKnowledgePointCodes, sessionLength, familiar, challenge } = params;
+  const allowedCodes = new Set(
+    [...familiar, ...challenge].map((item) => item.point.code)
+  );
+  const focusPoints = focusKnowledgePointCodes
+    .filter((code) => allowedCodes.has(code))
+    .map((code) => ALL_KNOWLEDGE_POINTS.find((point) => point.code === code))
+    .filter((point): point is NonNullable<typeof point> => point != null);
+
+  if (focusPoints.length === 0) {
+    return { familiar, challenge };
+  }
+
+  const targetChallengeCount = Math.min(
+    sessionLength,
+    Math.max(Math.ceil(sessionLength * 0.6), focusPoints.length)
+  );
+
+  const challengeCounts = new Map<KnowledgePointCode, number>();
+  for (let i = 0; i < targetChallengeCount; i++) {
+    const point = focusPoints[i % focusPoints.length];
+    challengeCounts.set(point.code, (challengeCounts.get(point.code) ?? 0) + 1);
+  }
+
+  const targetedChallenge: TopicAllocation[] = focusPoints.map((point) => ({
+    point,
+    count: challengeCounts.get(point.code) ?? 0,
+    isFamiliar: false,
+  }));
+
+  const familiarCount = Math.max(0, sessionLength - targetChallengeCount);
+  let remainingFamiliar = familiarCount;
+  const targetedFamiliar: TopicAllocation[] = [];
+  for (const item of familiar) {
+    if (remainingFamiliar <= 0) break;
+    const count = Math.min(item.count, remainingFamiliar);
+    if (count > 0) {
+      targetedFamiliar.push({ ...item, count });
+      remainingFamiliar -= count;
+    }
+  }
+
+  return {
+    familiar: targetedFamiliar,
+    challenge: targetedChallenge,
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { profileId, region, sessionLength, difficulty } = body as {
+    const { profileId, region, sessionLength, difficulty, focusKnowledgePointCodes = [] } = body as {
       profileId: number;
       region: string;
       sessionLength: SessionLength;
       difficulty: SessionDifficulty;
+      focusKnowledgePointCodes?: KnowledgePointCode[];
     };
 
     if (!profileId || !region || !sessionLength || !difficulty) {
@@ -48,11 +106,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Build 80/20 allocation
-    const { familiar, challenge } = buildSessionAllocation({
+    let { familiar, challenge } = buildSessionAllocation({
       subject: subject as "QR" | "AR" | "RC",
       masteryMap,
       sessionLength,
     });
+
+    ({ familiar, challenge } = buildTargetedAllocation({
+      focusKnowledgePointCodes,
+      sessionLength,
+      familiar,
+      challenge,
+    }));
 
     // Generate questions via Claude
     let systemPrompt: string;
@@ -77,18 +142,33 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // RC
-      const allKPs = RC_KNOWLEDGE_POINTS;
+      const targetedMix = [...challenge, ...familiar].map((item) => item.point);
+      const knowledgePointMix = targetedMix.length > 0 ? targetedMix : RC_KNOWLEDGE_POINTS;
       systemPrompt = buildRCSystemPrompt();
       userPrompt = buildRCBatchPrompt({
         passageCount: Math.max(1, Math.ceil(sessionLength / 4)),
         questionsPerPassage: Math.min(4, sessionLength),
         difficulty,
-        knowledgePointMix: allKPs,
+        knowledgePointMix,
       });
     }
 
     const raw = await chat(systemPrompt, userPrompt, 8192);
     questions = parseJSON<unknown[]>(raw);
+
+    questions = questions.map((q, idx) => {
+      const question = q as Record<string, unknown>;
+      const knowledgePointCode = typeof question.knowledgePointCode === "string"
+        ? question.knowledgePointCode
+        : undefined;
+      return {
+        ...question,
+        microSkillCode:
+          typeof question.microSkillCode === "string"
+            ? question.microSkillCode
+            : getDefaultMicroSkillCode(knowledgePointCode, idx),
+      };
+    });
 
     // For AR, move `options` (cell objects) → `options_ar` so the client
     // can distinguish between visual AR options and text MCQ options
@@ -136,9 +216,27 @@ export async function POST(request: NextRequest) {
       questions = flat.slice(0, sessionLength);
     }
 
+    const questSession = await prisma.questSession.create({
+      data: {
+        profileId,
+        region,
+        sessionLength,
+        difficulty,
+        questionCount: Array.isArray(questions) ? questions.length : sessionLength,
+      },
+      select: { id: true },
+    });
+
     return NextResponse.json({
+      questSessionId: questSession.id,
       questions,
-      allocation: { familiar, challenge },
+      allocation: {
+        familiar,
+        challenge,
+        focus: challenge.map((item) => item.point.code),
+        support: familiar.slice(0, Math.max(1, Math.ceil(familiar.length / 2))).map((item) => item.point.code),
+        retention: familiar.slice(Math.max(1, Math.ceil(familiar.length / 2))).map((item) => item.point.code),
+      },
       region,
       subject,
       sessionLength,

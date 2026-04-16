@@ -60,23 +60,21 @@ function distributeQuestionsAcrossTopics(
 ): TopicAllocation[] {
   if (pool.length === 0 || count === 0) return [];
 
-  const result: TopicAllocation[] = [];
-  const perTopic = Math.max(1, Math.floor(count / pool.length));
-  let remaining = count;
-
-  // Shuffle pool for variety (pseudo-random using current time)
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  const counts = new Map<KnowledgePointCode, number>();
 
-  for (let i = 0; i < shuffled.length && remaining > 0; i++) {
-    const isLast = i === shuffled.length - 1;
-    const topicCount = isLast ? remaining : Math.min(perTopic, remaining);
-    if (topicCount > 0) {
-      result.push({ point: shuffled[i], count: topicCount, isFamiliar });
-      remaining -= topicCount;
-    }
+  for (let i = 0; i < count; i++) {
+    const point = shuffled[i % shuffled.length];
+    counts.set(point.code, (counts.get(point.code) ?? 0) + 1);
   }
 
-  return result;
+  return shuffled
+    .filter((point) => counts.has(point.code))
+    .map((point) => ({
+      point,
+      count: counts.get(point.code) ?? 0,
+      isFamiliar,
+    }));
 }
 
 /** Create a deterministic question hash from text */

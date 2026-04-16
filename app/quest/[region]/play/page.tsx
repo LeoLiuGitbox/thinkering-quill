@@ -6,6 +6,8 @@ import Link from "next/link";
 import GameNav from "@/components/layout/GameNav";
 import ARGridView from "@/components/game/ARGridView";
 import MarkdownContext from "@/components/game/MarkdownContext";
+import QuestReviewCards from "@/components/quest/QuestReviewCards";
+import { WeakPointSummary } from "@/types/game";
 
 interface Question {
   questionText: string;
@@ -15,6 +17,7 @@ interface Question {
   correct: string;
   explanation: string;
   knowledgePointCode: string;
+  microSkillCode?: string;
   estimatedReadTimeMs: number;
   difficulty?: string;
   // AR fields
@@ -63,6 +66,7 @@ export default function QuestPlayPage() {
 
   const [profile, setProfile] = useState<any>(null);
   const [questions, setQuestions] = useState<QuestionState[]>([]);
+  const [questSessionId, setQuestSessionId] = useState<number | null>(null);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(true);
@@ -72,13 +76,20 @@ export default function QuestPlayPage() {
     totalSparks: number;
     correctCount: number;
     totalCount: number;
+    wisdomEarned?: number;
     rankUp?: string;
+    weakKnowledgePoints?: WeakPointSummary[];
+    recommendedNextFocus?: WeakPointSummary[];
   } | null>(null);
   const [optionsUnlocked, setOptionsUnlocked] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState("Preparing your challenges…");
   const [showExplanation, setShowExplanation] = useState(false);
   const [reflectionText, setReflectionText] = useState("");
   const [showReflection, setShowReflection] = useState(false);
+  const [showAbandonPrompt, setShowAbandonPrompt] = useState(false);
+  const [parentHandoffNotice, setParentHandoffNotice] = useState<{
+    mageName?: string;
+  } | null>(null);
 
   const unlockTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const logPathRef = useRef<string>("");
@@ -93,8 +104,38 @@ export default function QuestPlayPage() {
     if (!paramsStr) { router.push(`/quest/${encodeURIComponent(region)}`); return; }
 
     const questParams = JSON.parse(paramsStr);
+    if (questParams.launchSource === "parent_report") {
+      setParentHandoffNotice({
+        mageName: questParams.launchedForMageName,
+      });
+    }
     loadProfileAndGenerate(profileId, questParams);
   }, [region, router]);
+
+  useEffect(() => {
+    if (sessionComplete || showReflection) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!questions.length) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    const handlePopState = () => {
+      if (!questions.length || sessionComplete || showReflection) return;
+      window.history.pushState(null, "", window.location.href);
+      setShowAbandonPrompt(true);
+    };
+
+    window.history.pushState(null, "", window.location.href);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [questions.length, sessionComplete, showReflection]);
 
   async function loadProfileAndGenerate(profileId: string, questParams: any) {
     try {
@@ -110,6 +151,7 @@ export default function QuestPlayPage() {
         body: JSON.stringify(questParams),
       });
       const data = await res.json();
+      setQuestSessionId(data.questSessionId ?? null);
 
       const isAR = region === "Forest of Patterns";
       const rawQs: Question[] = data.questions || [];
@@ -315,14 +357,19 @@ export default function QuestPlayPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            questSessionId,
             profileId,
             region,
             questionText: state.question.questionText,
+            passageTitle: state.question.passageTitle,
+            contextText: state.question.context,
             optionsJson: JSON.stringify(state.question.options || []),
             correctAnswer: state.question.correct,
+            explanationText: state.question.explanation,
             userAnswer: state.userAnswer,
             firstChoice: state.firstChoice,
             knowledgePointCode: state.question.knowledgePointCode,
+            microSkillCode: state.question.microSkillCode,
             hintsUsed: state.hintsUsed,
             timeSpentMs: state.timeSpentMs,
             minimumReadTimeMs: state.question.estimatedReadTimeMs,
@@ -360,20 +407,31 @@ export default function QuestPlayPage() {
 
   async function completeReflection() {
     const profileId = parseInt(localStorage.getItem("activeProfileId") || "0");
-    if (reflectionText.trim()) {
-      await fetch("/api/quest/attempt", {
+    if (!questSessionId) {
+      setShowReflection(false);
+      setSessionComplete(true);
+      return;
+    }
+
+    let completionData: {
+      summary?: { totalSparks: number; correctCount: number; questionCount: number; wisdomEarned?: number };
+      weakKnowledgePoints?: WeakPointSummary[];
+      recommendedNextFocus?: WeakPointSummary[];
+    } | null = null;
+
+    try {
+      const response = await fetch("/api/quest/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          questSessionId,
           profileId,
-          region,
-          questionText: "reflection",
-          optionsJson: "[]",
-          correctAnswer: "A",
-          userAnswer: "A",
           reflectionText: reflectionText.trim(),
         }),
       });
+      completionData = await response.json();
+    } catch (err) {
+      console.error("Failed to complete quest session:", err);
     }
 
     // Finalize challenge log in background
@@ -393,11 +451,22 @@ export default function QuestPlayPage() {
         body: JSON.stringify({
           logPath: logPathRef.current,
           answers,
-          totalSparks: sessionResults?.totalSparks || 0,
-          correctCount: sessionResults?.correctCount || 0,
+          totalSparks: completionData?.summary?.totalSparks || sessionResults?.totalSparks || 0,
+          correctCount: completionData?.summary?.correctCount || sessionResults?.correctCount || 0,
           reflection: reflectionText.trim(),
         }),
       }).catch(err => console.error("Failed to finalize quest log:", err));
+    }
+
+    if (completionData?.summary) {
+      setSessionResults({
+        totalSparks: completionData.summary.totalSparks,
+        correctCount: completionData.summary.correctCount,
+        totalCount: completionData.summary.questionCount,
+        wisdomEarned: completionData.summary.wisdomEarned || 0,
+        weakKnowledgePoints: completionData.weakKnowledgePoints,
+        recommendedNextFocus: completionData.recommendedNextFocus,
+      });
     }
 
     setShowReflection(false);
@@ -406,7 +475,7 @@ export default function QuestPlayPage() {
 
   const current = questions[currentIdx];
   const isAR = region === "Forest of Patterns";
-  const isRC = region === "Reading Comprehension";
+  const isRC = region === "Lake of Reflection";
   const answeredCount = questions.filter((q) => q.userAnswer).length;
 
   function restartSession() {
@@ -422,12 +491,28 @@ export default function QuestPlayPage() {
     setShowExplanation(false);
     setReflectionText("");
     setShowReflection(false);
+    setQuestSessionId(null);
     logPathRef.current = "";
     if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current);
     const profileId = localStorage.getItem("activeProfileId");
     const paramsStr = sessionStorage.getItem("questParams");
     if (!profileId || !paramsStr) { router.push(`/quest/${encodeURIComponent(region)}`); return; }
     loadProfileAndGenerate(profileId, JSON.parse(paramsStr));
+  }
+
+  function getUnbankedSparksEstimate() {
+    return questions.reduce((sum, state) => {
+      if (state.userAnswer && state.userAnswer === state.question.correct) {
+        return sum + 1;
+      }
+      return sum;
+    }, 0);
+  }
+
+  function abandonQuest() {
+    setShowAbandonPrompt(false);
+    sessionStorage.removeItem("questParams");
+    router.push(`/quest/${encodeURIComponent(region)}`);
   }
   const allViewed = currentIdx === questions.length - 1 || answeredCount === questions.length;
 
@@ -473,50 +558,85 @@ export default function QuestPlayPage() {
     return (
       <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
         <GameNav profile={profile} />
-        <div className="max-w-lg mx-auto px-6 py-16 text-center">
-          <div className="text-7xl mb-6">✨</div>
-          <h1 className="text-3xl font-bold mb-3" style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}>
-            Quest Complete!
-          </h1>
-          <p className="text-5xl font-bold mb-2" style={{ color: "#E7C777" }}>
-            +{sessionResults.totalSparks} ✦
-          </p>
-          <p className="text-lg mb-8" style={{ color: "#EADFC8" }}>
-            {sessionResults.correctCount} / {sessionResults.totalCount} correct
-          </p>
+        <div className="max-w-5xl mx-auto px-6 py-16">
+          <div className="text-center">
+            <div className="text-7xl mb-6">✨</div>
+            <h1 className="text-3xl font-bold mb-3" style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}>
+              Quest Complete!
+            </h1>
+            <p className="text-5xl font-bold mb-2" style={{ color: "#E7C777" }}>
+              +{sessionResults.totalSparks} ✦
+            </p>
+            {sessionResults.wisdomEarned ? (
+              <p className="text-lg font-bold mb-2" style={{ color: "#C4A44A" }}>
+                +{sessionResults.wisdomEarned} Wisdom
+              </p>
+            ) : null}
+            <p className="text-lg mb-8" style={{ color: "#EADFC8" }}>
+              {sessionResults.correctCount} / {sessionResults.totalCount} correct
+            </p>
+          </div>
+
+          {sessionResults.weakKnowledgePoints && sessionResults.weakKnowledgePoints.length > 0 && (
+            <div
+              className="mb-8 p-5 rounded-2xl text-left"
+              style={{ background: "#1E2E5A", border: "1px solid #B68A3A33" }}
+            >
+              <h3 className="text-sm uppercase tracking-widest mb-3" style={{ color: "#B68A3A" }}>
+                Needs more work
+              </h3>
+              <div className="space-y-2">
+                {sessionResults.weakKnowledgePoints.slice(0, 3).map((item) => (
+                  <p key={item.code} className="text-sm" style={{ color: "#EADFC8" }}>
+                    <span style={{ color: "#E7C777" }}>{item.code}</span> · {item.label}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {sessionResults.recommendedNextFocus && sessionResults.recommendedNextFocus.length > 0 && (
+            <div
+              className="mb-8 p-5 rounded-2xl text-left"
+              style={{ background: "#16213B", border: "1px solid #2E5A8E55" }}
+            >
+              <h3 className="text-sm uppercase tracking-widest mb-3" style={{ color: "#6BA3D6" }}>
+                Next quest focus
+              </h3>
+              <div className="space-y-2">
+                {sessionResults.recommendedNextFocus.map((item) => (
+                  <p key={item.code} className="text-sm" style={{ color: "#EADFC8" }}>
+                    <span style={{ color: "#E7C777" }}>{item.code}</span> · {item.label}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Review answers */}
           <div className="mb-8 text-left">
-            <h3 className="text-sm uppercase tracking-widest mb-4" style={{ color: "#B68A3A" }}>
-              Review your answers
-            </h3>
-            <div className="space-y-3">
-              {questions.map((state, i) => {
-                const isCorrect = state.userAnswer === state.question.correct;
-                return (
-                  <div
-                    key={i}
-                    className="p-4 rounded-xl"
-                    style={{
-                      background: "#1E2E5A",
-                      border: `1px solid ${isCorrect ? "#2E6B3A" : "#6B2E2E"}`,
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm flex-1" style={{ color: "#EADFC8" }}>
-                        {i + 1}. {state.question.questionText.slice(0, 100)}…
-                      </p>
-                      <span className="text-lg flex-shrink-0">{isCorrect ? "✅" : "❌"}</span>
-                    </div>
-                    {!isCorrect && (
-                      <p className="text-xs mt-2" style={{ color: "#EADFC8", opacity: 0.6 }}>
-                        Correct: {state.question.correct} | Your answer: {state.userAnswer || "skipped"}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            <QuestReviewCards
+              items={questions.map((state, index) => ({
+                id: index + 1,
+                order: index + 1,
+                questionText: state.question.questionText,
+                context: state.question.context,
+                passageTitle: state.question.passageTitle,
+                options: ((state.question.options || []) as Array<string | Record<string, unknown>>).map((opt) =>
+                  typeof opt === "string" ? opt : JSON.stringify(opt)
+                ),
+                correctAnswer: state.question.correct,
+                userAnswer: state.userAnswer,
+                isCorrect: state.userAnswer === state.question.correct,
+                explanation: state.question.explanation,
+                hintsUsed: state.hintsUsed,
+                timeSpentMs: state.timeSpentMs,
+                knowledgePointCode: state.question.knowledgePointCode,
+                microSkillCode: state.question.microSkillCode,
+                attemptedAt: "",
+                flagged: state.flagged,
+              }))}
+            />
           </div>
 
           <div className="flex gap-3">
@@ -533,6 +653,21 @@ export default function QuestPlayPage() {
             >
               Archive Hall
             </Link>
+            {questSessionId && (
+              <Link
+                href={`/quest/review/${questSessionId}`}
+                className="flex-1 py-3 rounded-xl font-bold transition-all hover:opacity-90"
+                style={{
+                  background: "#1E2E5A",
+                  border: "1px solid #6BA3D6",
+                  color: "#6BA3D6",
+                  fontFamily: "Georgia, serif",
+                  textAlign: "center",
+                }}
+              >
+                Save review
+              </Link>
+            )}
             <button
               onClick={restartSession}
               className="flex-1 py-3 rounded-xl font-bold transition-all hover:scale-[1.02]"
@@ -605,10 +740,82 @@ export default function QuestPlayPage() {
     <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
       <GameNav profile={profile} />
 
-      <main className="max-w-3xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        {showAbandonPrompt && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center px-6"
+            style={{ background: "rgba(15, 28, 63, 0.84)", backdropFilter: "blur(3px)" }}
+          >
+            <div
+              className="w-full max-w-md rounded-3xl p-6"
+              style={{ background: "#1A2545", border: "1px solid #C84B31" }}
+            >
+              <p className="text-xs uppercase tracking-[0.22em] mb-2" style={{ color: "#F5A39A" }}>
+                Abandon Quest
+              </p>
+              <h2 className="text-2xl font-bold mb-3" style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}>
+                Leave this quest?
+              </h2>
+              <p className="mb-3" style={{ color: "#EADFC8", lineHeight: 1.75 }}>
+                If you leave now, this quest will be abandoned and your unfinished progress will not be saved.
+              </p>
+              <p className="mb-6" style={{ color: "#F5A39A", lineHeight: 1.75 }}>
+                You may lose up to {getUnbankedSparksEstimate()} ✦ from this run.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowAbandonPrompt(false)}
+                  className="flex-1 rounded-xl py-3 font-bold"
+                  style={{ border: "1px solid #B68A3A55", color: "#E7C777" }}
+                >
+                  Keep Quest
+                </button>
+                <button
+                  onClick={abandonQuest}
+                  className="flex-1 rounded-xl py-3 font-bold"
+                  style={{ background: "#C84B31", color: "#FDF1E1" }}
+                >
+                  Abandon Quest
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {parentHandoffNotice && (
+          <div
+            className="mb-6 p-4 rounded-2xl flex items-start justify-between gap-4"
+            style={{ background: "#16213B", border: "1px solid #2E5A8E55" }}
+          >
+            <div>
+              <p className="text-sm font-bold mb-1" style={{ color: "#6BA3D6" }}>
+                Parent handoff active
+              </p>
+              <p className="text-sm" style={{ color: "#EADFC8" }}>
+                This quest was launched from the parent report{parentHandoffNotice.mageName ? ` for ${parentHandoffNotice.mageName}` : ""}.
+                The recommended weak-skill focus has already been loaded.
+              </p>
+            </div>
+            <button
+              onClick={() => setParentHandoffNotice(null)}
+              className="px-3 py-1 rounded-lg text-xs font-semibold"
+              style={{ background: "#0F1C3F", color: "#6BA3D6", border: "1px solid #2E5A8E55" }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* Top Bar */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowAbandonPrompt(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+              style={{ background: "#1A2545", color: "#F5A39A", border: "1px solid #C84B31" }}
+            >
+              Back
+            </button>
             <span style={{ color: "#B68A3A" }} className="text-sm">
               Question {currentIdx + 1} of {questions.length}
             </span>
@@ -687,10 +894,10 @@ export default function QuestPlayPage() {
 
         {/* RC Split Layout: passage left, question+options right */}
         {isRC && current.question.context ? (
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,4fr)_minmax(280px,1fr)] gap-4 mb-6">
             {/* Left: Passage */}
             <div
-              className="md:w-3/5 p-5 rounded-xl text-sm leading-relaxed overflow-y-auto"
+              className="min-w-0 p-6 rounded-xl text-lg leading-relaxed overflow-y-auto"
               style={{
                 background: "#1A2545",
                 border: "1px solid #B68A3A33",
@@ -707,13 +914,13 @@ export default function QuestPlayPage() {
             </div>
 
             {/* Right: Question + Options */}
-            <div className="md:w-2/5 flex flex-col gap-3">
+            <div className="min-w-0 flex flex-col gap-3">
               <div
                 className="p-5 rounded-2xl"
                 style={{ background: "#1E2E5A", border: "1px solid #B68A3A44" }}
               >
                 <p
-                  className="text-base leading-relaxed mb-4"
+                  className="text-xl leading-relaxed mb-5"
                   style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}
                 >
                   {current.question.questionText}
@@ -736,7 +943,7 @@ export default function QuestPlayPage() {
                         <button
                           key={i}
                           onClick={() => selectAnswer(label)}
-                          className="w-full text-left px-3 py-2 rounded-xl transition-all hover:opacity-90 text-sm"
+                          className="w-full text-left px-4 py-3 rounded-xl transition-all hover:opacity-90 text-lg"
                           style={{
                             background: isSelected ? "#B68A3A22" : "#0F1C3F",
                             border: `2px solid ${isSelected ? "#E7C777" : "#B68A3A44"}`,
@@ -759,7 +966,7 @@ export default function QuestPlayPage() {
             {/* Non-RC: context above (for QR charts/tables) */}
             {current.question.context && (
               <div
-                className="p-5 rounded-xl mb-6 text-sm leading-relaxed"
+                className="p-6 rounded-xl mb-6 text-lg leading-relaxed"
                 style={{ background: "#1A2545", border: "1px solid #B68A3A33", color: "#EADFC8" }}
               >
                 {current.question.passageTitle && (
@@ -777,7 +984,7 @@ export default function QuestPlayPage() {
               style={{ background: "#1E2E5A", border: "1px solid #B68A3A44" }}
             >
               <p
-                className="text-lg leading-relaxed mb-6"
+                className="text-2xl leading-relaxed mb-6"
                 style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}
               >
                 {current.question.questionText}
@@ -871,6 +1078,8 @@ export default function QuestPlayPage() {
                             border: `2px solid ${isSelected ? "#E7C777" : "#B68A3A44"}`,
                             color: "#EADFC8",
                             fontFamily: "Georgia, serif",
+                            fontSize: "1.125rem",
+                            lineHeight: 1.8,
                           }}
                         >
                           <span className="font-bold mr-2" style={{ color: "#B68A3A" }}>{label}.</span>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getRank } from "@/lib/progression";
+import { syncUnlockedArtifacts } from "@/lib/artifacts";
 
 /** GET /api/profile/[id] — get a single profile with stats */
 export async function GET(
@@ -14,12 +14,27 @@ export async function GET(
   }
 
   try {
+    await syncUnlockedArtifacts(profileId);
+
     const profile = await prisma.profile.findUnique({
       where: { id: profileId },
       include: {
         badges: true,
         subjectStats: true,
         knowledgeMastery: true,
+        questSessions: {
+          where: { status: "completed" },
+          orderBy: { completedAt: "desc" },
+          take: 5,
+          select: {
+            id: true,
+            region: true,
+            totalSparks: true,
+            correctCount: true,
+            questionCount: true,
+            completedAt: true,
+          },
+        },
         artifacts: { include: { artifact: true } },
         dailyActivity: { orderBy: { activityDate: "desc" }, take: 30 },
         fieldJournal: { orderBy: { discoveredAt: "desc" } },

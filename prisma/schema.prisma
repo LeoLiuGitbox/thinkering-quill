@@ -27,6 +27,7 @@ model Profile {
   attrWisdom  Int @default(0)
 
   // Relations
+  questSessions      QuestSession[]
   quizAttempts      QuizAttempt[]
   examSessions      ExamSession[]
   writingSessions   WritingSession[]
@@ -39,17 +40,43 @@ model Profile {
   fieldJournal      FieldJournalEntry[]
 }
 
+model QuestSession {
+  id             Int      @id @default(autoincrement())
+  profileId      Int
+  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  region         String
+  sessionLength  Int
+  difficulty     String   // Apprentice | Journeyman | Archmage
+  status         String   @default("in_progress") // in_progress | completed | abandoned
+  totalSparks    Int      @default(0)
+  correctCount   Int      @default(0)
+  questionCount  Int      @default(0)
+  reflectionText String?
+  startedAt      DateTime @default(now())
+  completedAt    DateTime?
+
+  attempts QuizAttempt[]
+
+  @@index([profileId, region, startedAt])
+}
+
 model QuizAttempt {
   id                 Int      @id @default(autoincrement())
   profileId          Int
   profile            Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  questSessionId     Int?
+  questSession       QuestSession? @relation(fields: [questSessionId], references: [id], onDelete: SetNull)
   region             String   // "Forest of Patterns" | "Clocktower of Logic" | etc.
   knowledgePointCode String?  // e.g. "QR-02", "AR-06"
+  microSkillCode     String?
   topic              String?
   questionHash       String
   questionText       String
+  passageTitle       String?
+  contextText        String?
   optionsJson        String   // JSON string
   correctAnswer      String
+  explanationText    String?
   userAnswer         String?
   isCorrect          Boolean  @default(false)
   firstChoiceCorrect Boolean  @default(false) // instinctive understanding signal
@@ -60,6 +87,10 @@ model QuizAttempt {
   minimumReadTimeMs  Int?
   reflectionText     String?
   attemptedAt        DateTime @default(now())
+
+  @@index([questSessionId, attemptedAt])
+  @@index([profileId, region, attemptedAt])
+  @@index([profileId, knowledgePointCode, attemptedAt])
 }
 
 model ExamSession {
@@ -142,9 +173,16 @@ model FieldJournalEntry {
   profileId          Int
   profile            Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
   knowledgePointCode String
+  spellName          String?
   title              String
   storyText          String
   spotQuestion       String
+  answerKeyJson      String?
+  discoveryStatus    String   @default("undiscovered") // undiscovered | discovered
+  discoveryFeedback  String?
+  firstDiscoveredAt  DateTime?
+  discoveryAttemptCount Int   @default(0)
+  rewardClaimed      Boolean  @default(false)
   studentAnswer      String?  // optional — kid writes their observation
   discoveredAt       DateTime @default(now())
 }
