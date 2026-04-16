@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import GameNav from "@/components/layout/GameNav";
 import MarkdownContext from "@/components/game/MarkdownContext";
 

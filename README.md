@@ -55,8 +55,8 @@ AI is **not** treated as the default authoritative writing scorer.
 
 Core product and system documents:
 
-- [PRD](./thinkering_quill_prd.md)
-- [System Design](./DESIGN.md)
+- [PRD](./docs/product/thinkering_quill_prd.md)
+- [System Design](./docs/product/DESIGN.md)
 
 K12 database work is currently kept as a separate data-layer track:
 
