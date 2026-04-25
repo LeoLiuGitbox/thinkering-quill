@@ -54,9 +54,8 @@ export async function checkAndAwardBadges(
 
   // ── Writing trigger ───────────────────────────────────────────────────────
   if (trigger === "writing") {
-    // A "completed" writing session has a saved draft_v2
     const writingCount = await prisma.writingSession.count({
-      where: { profileId, draftV2: { not: null } },
+      where: { profileId, status: "completed" },
     });
     if (writingCount >= 3) await award("story_weaver", "bronze");
     if (writingCount >= 10) await award("story_weaver", "silver");

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { buildParentWritingReport } from "@/lib/writingProgress";
 
 const PARENT_PROFILE_SELECT = {
   id: true,
@@ -136,5 +137,9 @@ export async function getParentProfile(profileId: number) {
   });
 
   if (!profile) return null;
-  return mapParentProfile(profile);
+  const writingPayload = await buildParentWritingReport(profileId);
+  return {
+    ...mapParentProfile(profile),
+    ...writingPayload,
+  };
 }

@@ -13,6 +13,12 @@ interface NavProfile {
   quillEnergy?: number;
 }
 
+const CHALLENGE_TITLE: Record<string, string> = {
+  quest: "Quest",
+  tournament: "Tournament",
+  "writing task": "Writing Task",
+};
+
 const AURA_GLOW: Record<string, string> = {
   bright: "rgba(231, 199, 119, 0.5)",
   unstable: "rgba(200, 75, 49, 0.5)",
@@ -38,7 +44,7 @@ const NAV_ITEMS = [
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function GameNav({ profile: profileRaw }: { profile?: any }) {
+export default function GameNav({ profile: profileRaw, isProtected, protectedLabel }: { profile?: any; isProtected?: boolean; protectedLabel?: string }) {
   const profile = profileRaw as NavProfile | null | undefined;
   const pathname = usePathname();
   const router = useRouter();
@@ -47,8 +53,8 @@ export default function GameNav({ profile: profileRaw }: { profile?: any }) {
 
   const inActiveQuest = Boolean(pathname?.startsWith("/quest/") && pathname?.endsWith("/play"));
   const inActiveTournament = Boolean(pathname?.startsWith("/tournament/") && pathname !== "/tournament");
-  const inProtectedRun = inActiveQuest || inActiveTournament;
-  const challengeLabel = inActiveTournament ? "tournament" : "quest";
+  const inProtectedRun = isProtected || inActiveQuest || inActiveTournament;
+  const challengeLabel = protectedLabel ?? (inActiveTournament ? "tournament" : "quest");
 
   function closeMenus() {
     setMenuOpen(false);
@@ -261,7 +267,7 @@ export default function GameNav({ profile: profileRaw }: { profile?: any }) {
             style={{ background: "#1A2545", border: "1px solid #C84B31" }}
           >
             <p className="text-xs uppercase tracking-[0.22em] mb-2" style={{ color: "#F5A39A" }}>
-              Leave Active {challengeLabel === "quest" ? "Quest" : "Tournament"}
+              Leave Active {CHALLENGE_TITLE[challengeLabel] ?? "Session"}
             </p>
             <h2 className="text-2xl font-bold mb-3" style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}>
               Continue this {challengeLabel} or abandon it?

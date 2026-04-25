@@ -9,10 +9,10 @@ import {
   calculateWritingDrillSparks,
   calculateWritingRevisionSparks,
 } from "@/lib/rewards";
-import { getRank } from "@/lib/progression";
 import { checkAndAwardBadges } from "@/lib/badges";
+import { completeWritingSession } from "@/lib/writingProgress";
+import type { WritingMode } from "@/types/writing";
 
-type WritingMode = "micro_skill_drill" | "guided_writing";
 type DraftStage = "draft_v1" | "draft_v2";
 const WRITING_REVISION_WISDOM_BONUS = 1;
 
@@ -338,6 +338,7 @@ export async function POST(request: NextRequest) {
       body.mode === "guided_writing" ? "guided_writing" : "micro_skill_drill";
     const stage: DraftStage =
       body.stage === "draft_v2" ? "draft_v2" : "draft_v1";
+    const completeWithoutRevision = Boolean(body.completeWithoutRevision);
 
     if (!Number.isInteger(profileId) || profileId <= 0) {
       return NextResponse.json({ error: "Valid profileId is required" }, { status: 400 });
@@ -404,6 +405,43 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      if (completeWithoutRevision) {
+        const sparksEarned =
+          calculateWritingDrillSparks() +
+          (mode === "guided_writing" ? 6 : 0);
+
+        const progress = await completeWritingSession({
+          profileId,
+          sessionId,
+          mode,
+          targetSkill: skillCode,
+          promptText,
+          draftV1: draftText,
+          feedback,
+          feedbackSummary: feedback,
+          revisionInstruction: feedback.revisionInstruction,
+          sparksEarned,
+          revisionCompleted: false,
+        });
+
+        checkAndAwardBadges(profileId, "writing").catch((err) =>
+          console.error("Badge check failed:", err)
+        );
+
+        return NextResponse.json({
+          feedback,
+          completed: true,
+          revisionCompleted: false,
+          sparksEarned,
+          wisdomEarned: 0,
+          completionMessage:
+            "You finished the draft. Revision was skipped this time, so the skill count grew but the revision bonus did not.",
+          progressDeltas: progress.progressDeltas,
+          updatedSkills: progress.updatedSkills,
+          nextRecommendation: progress.nextRecommendation,
+        });
+      }
+
       return NextResponse.json({ feedback, completed: false });
     }
 
@@ -412,35 +450,32 @@ export async function POST(request: NextRequest) {
       calculateWritingRevisionSparks() +
       (mode === "guided_writing" ? 6 : 0);
     const wisdomEarned = WRITING_REVISION_WISDOM_BONUS;
-
-    const profile = await prisma.profile.findUnique({
-      where: { id: profileId },
-      select: { totalXP: true },
-    });
-
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-    }
-
-    await prisma.writingSession.update({
+    const existingFeedback = await prisma.writingSession.findUnique({
       where: { id: sessionId },
-      data: {
-        sessionMode: mode,
-        targetSkill: skillCode,
-        promptText,
-        draftV2: draftText,
-        sparksEarned,
+      select: {
+        feedbackSummaryJson: true,
+        revisionInstruction: true,
+        draftV1: true,
       },
     });
 
-    await prisma.profile.update({
-      where: { id: profileId },
-      data: {
-        totalXP: { increment: sparksEarned },
-        rank: getRank(profile.totalXP + sparksEarned),
-        attrCraft: { increment: 1 },
-        attrWisdom: { increment: wisdomEarned },
-      },
+    const summaryFeedback = existingFeedback?.feedbackSummaryJson
+      ? parseJSON<WritingCoachingFeedback>(existingFeedback.feedbackSummaryJson)
+      : null;
+
+    const progress = await completeWritingSession({
+      profileId,
+      sessionId,
+      mode,
+      targetSkill: skillCode,
+      promptText,
+      draftV1: existingFeedback?.draftV1 ?? null,
+      draftV2: draftText,
+      revisionInstruction: existingFeedback?.revisionInstruction ?? summaryFeedback?.revisionInstruction ?? null,
+      feedbackSummary: summaryFeedback,
+      sparksEarned,
+      wisdomEarned,
+      revisionCompleted: true,
     });
 
     // Award badges — fire-and-forget
@@ -450,12 +485,16 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       completed: true,
+      revisionCompleted: true,
       sparksEarned,
       wisdomEarned,
       completionMessage:
         mode === "guided_writing"
           ? "Your revision strengthened the piece. Keep this clarity when you build longer compositions. +1 Wisdom for revising thoughtfully."
           : "You revised with purpose. That is exactly how writing skill grows. +1 Wisdom for revising thoughtfully.",
+      progressDeltas: progress.progressDeltas,
+      updatedSkills: progress.updatedSkills,
+      nextRecommendation: progress.nextRecommendation,
     });
   } catch (error) {
     console.error("POST /api/writing/exercise error:", error);

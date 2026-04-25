@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import type { WritingReport, WritingProgressSnapshot } from "@/types/writing";
 
 interface BadgeSummary {
   badgeKey: string;
@@ -59,6 +60,9 @@ interface ProfileReport {
   knowledgeMasteries: KnowledgeMastery[];
   recentActivity: DailyActivity[];
   integrityReport: IntegrityReport;
+  writingSkillProgress: WritingProgressSnapshot[];
+  writingReport: WritingReport;
+  revisionRate: number;
 }
 
 const REGION_LABELS: Record<string, string> = {
@@ -393,6 +397,117 @@ export default function ParentReportPage() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 mt-6">
+          <section className="rounded-3xl p-6 md:col-span-2" style={{ background: "#ffffff", border: "1px solid #e5d7bf" }}>
+            <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
+              <div>
+                <h2 className="text-xl font-bold mb-1" style={{ color: "#5b4631" }}>Writing Growth</h2>
+                <p className="text-sm" style={{ color: "#4b5563" }}>
+                  {profile.writingReport?.summaryText ?? "Writing growth summaries will appear once writing practice begins."}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 min-w-[240px]">
+                <div className="rounded-2xl p-4" style={{ background: "#f7f2e8" }}>
+                  <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#9a7b53" }}>Revision Rate</p>
+                  <p className="text-2xl font-bold" style={{ color: "#5b4631" }}>{profile.revisionRate ?? 0}%</p>
+                </div>
+                <div className="rounded-2xl p-4" style={{ background: "#f7f2e8" }}>
+                  <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#9a7b53" }}>Writing Skills</p>
+                  <p className="text-2xl font-bold" style={{ color: "#5b4631" }}>{profile.writingSkillProgress?.length ?? 0}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
+              {(["micro_skill_drill", "guided_writing", "full_task"] as const).map((mode) => (
+                <div key={mode} className="rounded-2xl p-4" style={{ background: "#f7f2e8" }}>
+                  <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#9a7b53" }}>
+                    {mode === "micro_skill_drill" ? "Skill Drills" : mode === "guided_writing" ? "Guided Writing" : "Full Tasks"}
+                  </p>
+                  <p className="text-2xl font-bold" style={{ color: "#5b4631" }}>
+                    {profile.writingReport?.sessionsByMode30d?.[mode] ?? 0}
+                  </p>
+                  <p className="text-xs" style={{ color: "#6b7280" }}>
+                    30 days · {profile.writingReport?.sessionsByMode14d?.[mode] ?? 0} in the last 14 days
+                  </p>
+                </div>
+              ))}
+              <div className="rounded-2xl p-4" style={{ background: "#f7f2e8" }}>
+                <p className="text-xs uppercase tracking-widest mb-1" style={{ color: "#9a7b53" }}>Latest Pattern</p>
+                <p className="text-sm font-semibold" style={{ color: "#5b4631" }}>
+                  {profile.writingReport?.latestCoachingPattern?.focus ?? "No coaching pattern yet"}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl p-4" style={{ background: "#f7f2e8" }}>
+                <p className="text-sm font-semibold mb-3" style={{ color: "#5b4631" }}>Strongest developing writing skills</p>
+                {profile.writingReport?.strongestSkills?.length ? (
+                  <div className="space-y-3">
+                    {profile.writingReport.strongestSkills.map((skill) => (
+                      <div key={skill.skillCode}>
+                        <p className="font-semibold" style={{ color: "#5b4631" }}>{skill.skillLabel}</p>
+                        <p className="text-sm" style={{ color: "#4b5563" }}>
+                          {skill.levelLabel} · {skill.totalSessions} sessions · {skill.revisionCompletions} revisions
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm" style={{ color: "#4b5563" }}>No writing skill data yet.</p>
+                )}
+              </div>
+
+              <div className="rounded-2xl p-4" style={{ background: "#f7f2e8" }}>
+                <p className="text-sm font-semibold mb-3" style={{ color: "#5b4631" }}>Writing skills needing support</p>
+                {profile.writingReport?.supportSkills?.length ? (
+                  <div className="space-y-3">
+                    {profile.writingReport.supportSkills.map((skill) => (
+                      <div key={skill.skillCode}>
+                        <p className="font-semibold" style={{ color: "#5b4631" }}>{skill.skillLabel}</p>
+                        <p className="text-sm" style={{ color: "#4b5563" }}>
+                          {skill.levelLabel} · recent focus: {skill.recentFocusNote ?? "keep revising this move"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm" style={{ color: "#4b5563" }}>No support areas yet.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 mt-4">
+              <div className="rounded-2xl p-4" style={{ background: "#f7f2e8" }}>
+                <p className="text-sm font-semibold mb-2" style={{ color: "#5b4631" }}>Latest coaching summary</p>
+                <p className="text-sm mb-2" style={{ color: "#4b5563" }}>
+                  Strength: {profile.writingReport?.latestCoachingPattern?.strength ?? "Not available yet."}
+                </p>
+                <p className="text-sm" style={{ color: "#4b5563" }}>
+                  Focus: {profile.writingReport?.latestCoachingPattern?.focus ?? "Not available yet."}
+                </p>
+              </div>
+
+              <div className="rounded-2xl p-4" style={{ background: "#f7f2e8" }}>
+                <p className="text-sm font-semibold mb-2" style={{ color: "#5b4631" }}>Recent full writing tasks</p>
+                {profile.writingReport?.recentFullTasks?.length ? (
+                  <div className="space-y-2">
+                    {profile.writingReport.recentFullTasks.map((task) => (
+                      <div key={task.id}>
+                        <p className="font-semibold" style={{ color: "#5b4631" }}>{task.promptCue ?? "Full task prompt"}</p>
+                        <p className="text-sm" style={{ color: "#4b5563" }}>
+                          {task.writingType} · {formatDate(task.completedAt)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm" style={{ color: "#4b5563" }}>No full writing tasks completed yet.</p>
+                )}
+              </div>
+            </div>
+          </section>
+
           <section className="rounded-3xl p-6" style={{ background: "#ffffff", border: "1px solid #e5d7bf" }}>
             <h2 className="text-xl font-bold mb-4" style={{ color: "#5b4631" }}>Areas of Strength</h2>
             {strongestTopics.length === 0 ? (

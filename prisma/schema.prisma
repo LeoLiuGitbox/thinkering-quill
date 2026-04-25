@@ -38,6 +38,7 @@ model Profile {
   subjectStats      SubjectStat[]
   knowledgeMastery  KnowledgeMastery[]
   fieldJournal      FieldJournalEntry[]
+  writingSkillProgress WritingSkillProgress[]
 }
 
 model QuestSession {
@@ -132,13 +133,20 @@ model WritingSession {
   profileId        Int
   profile          Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
   sessionMode      String   @default("full_task") // micro_skill_drill | guided_writing | full_task — default is overridden by all create paths; remove when next migration runs
+  status           String   @default("in_progress") // in_progress | completed | abandoned
   targetSkill      String?
   promptText       String?
   outlineNotes     String?
   draftV1          String?
   revisionInstruction String?
   draftV2          String?
+  completedAt      DateTime?
+  revisionCompleted Boolean @default(false)
+  draft1WordCount  Int?
+  draft2WordCount  Int?
   feedbackSummaryJson String?
+  coachSignalsJson String?  // JSON string array of coaching signal tags
+  progressDeltaJson String? // JSON summary of which skills moved and why
   imageDescription String?
   imagePath        String?  // local path: public/writing-images/<id>.png
   writingType      String   @default("narrative") // narrative | descriptive | persuasive
@@ -147,6 +155,30 @@ model WritingSession {
   feedbackJson     String?  // {scores, praise, tip, sparksEarned}
   sparksEarned     Int      @default(0)
   createdAt        DateTime @default(now())
+
+  @@index([profileId, sessionMode, createdAt])
+  @@index([profileId, status, createdAt])
+}
+
+model WritingSkillProgress {
+  id                  Int      @id @default(autoincrement())
+  profileId           Int
+  profile             Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  skillCode           String
+  currentLevel        Int      @default(1)
+  totalSessions       Int      @default(0)
+  revisionCompletions Int      @default(0)
+  guidedSessions      Int      @default(0)
+  fullTaskCompletions Int      @default(0)
+  lastPracticedAt     DateTime?
+  lastImprovedAt      DateTime?
+  recentStrengthNote  String?
+  recentFocusNote     String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([profileId, skillCode])
+  @@index([profileId, lastPracticedAt])
 }
 
 model KnowledgeMastery {

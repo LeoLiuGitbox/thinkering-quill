@@ -751,16 +751,13 @@ export default function QuestPlayPage() {
               style={{ background: "#1A2545", border: "1px solid #C84B31" }}
             >
               <p className="text-xs uppercase tracking-[0.22em] mb-2" style={{ color: "#F5A39A" }}>
-                Abandon Quest
+                Leave Active Quest
               </p>
               <h2 className="text-2xl font-bold mb-3" style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}>
-                Leave this quest?
+                Continue this quest or abandon it?
               </h2>
-              <p className="mb-3" style={{ color: "#EADFC8", lineHeight: 1.75 }}>
-                If you leave now, this quest will be abandoned and your unfinished progress will not be saved.
-              </p>
-              <p className="mb-6" style={{ color: "#F5A39A", lineHeight: 1.75 }}>
-                You may lose up to {getUnbankedSparksEstimate()} ✦ from this run.
+              <p className="mb-6" style={{ color: "#EADFC8", lineHeight: 1.75 }}>
+                The current quest is still in progress. If you leave through the Hall navigation now, this run will be treated as abandoned.
               </p>
               <div className="flex gap-3">
                 <button
@@ -768,14 +765,14 @@ export default function QuestPlayPage() {
                   className="flex-1 rounded-xl py-3 font-bold"
                   style={{ border: "1px solid #B68A3A55", color: "#E7C777" }}
                 >
-                  Keep Quest
+                  Return to quest
                 </button>
                 <button
                   onClick={abandonQuest}
                   className="flex-1 rounded-xl py-3 font-bold"
                   style={{ background: "#C84B31", color: "#FDF1E1" }}
                 >
-                  Abandon Quest
+                  Abandon and leave
                 </button>
               </div>
             </div>

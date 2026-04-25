@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { syncUnlockedArtifacts } from "@/lib/artifacts";
+import { buildWritingProgressPayload } from "@/lib/writingProgress";
 
 /** GET /api/profile/[id] — get a single profile with stats */
 export async function GET(
@@ -45,6 +46,8 @@ export async function GET(
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
+    const writingPayload = await buildWritingProgressPayload(profileId);
+
     // Normalise relation names for client consistency
     const { knowledgeMastery, fieldJournal, ...rest } = profile;
     return NextResponse.json({
@@ -52,6 +55,7 @@ export async function GET(
         ...rest,
         knowledgeMasteries: knowledgeMastery,
         fieldJournalEntries: fieldJournal,
+        ...writingPayload,
       },
     });
   } catch (error) {

@@ -6,8 +6,9 @@ import {
   buildWritingFullTaskUserPrompt,
 } from "@/lib/prompts/writing";
 import { calculateWritingFullTaskSparks } from "@/lib/rewards";
-import { getRank } from "@/lib/progression";
 import { makeWritingLogPath, appendWritingSubmission } from "@/lib/challengeLog";
+import { completeWritingSession } from "@/lib/writingProgress";
+import { checkAndAwardBadges } from "@/lib/badges";
 
 type FullTaskFeedback = {
   strength: string;
@@ -77,42 +78,35 @@ export async function POST(request: NextRequest) {
     const sparksEarned = calculateWritingFullTaskSparks(wordCount);
     const wisdomEarned = FULL_TASK_WISDOM_BONUS;
 
-    const profile = await prisma.profile.findUnique({
-      where: { id: profileId },
-      select: { totalXP: true },
+    const progress = await completeWritingSession({
+      profileId,
+      sessionId,
+      mode: "full_task",
+      targetSkill: null,
+      promptText: promptCue,
+      promptCue,
+      writingType,
+      draftV1: writingText,
+      userResponse: writingText,
+      revisionInstruction: feedback.revisionInstruction,
+      feedback,
+      feedbackSummary: feedback,
+      sparksEarned,
+      wisdomEarned,
+      revisionCompleted: false,
     });
-
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-    }
 
     await prisma.writingSession.update({
       where: { id: sessionId },
       data: {
-        sessionMode: "full_task",
-        promptText: promptCue,
-        promptCue,
         imageDescription: imageDescription || null,
         imagePath,
-        writingType,
-        userResponse: writingText,
-        draftV1: writingText,
-        revisionInstruction: feedback.revisionInstruction,
-        feedbackJson: JSON.stringify(feedback),
-        feedbackSummaryJson: JSON.stringify(feedback),
-        sparksEarned,
       },
     });
 
-    await prisma.profile.update({
-      where: { id: profileId },
-      data: {
-        totalXP: { increment: sparksEarned },
-        rank: getRank(profile.totalXP + sparksEarned),
-        attrCraft: { increment: 1 },
-        attrWisdom: { increment: wisdomEarned },
-      },
-    });
+    checkAndAwardBadges(profileId, "writing").catch((err) =>
+      console.error("Badge check failed:", err)
+    );
 
     // Append writing + feedback to challenge log (fire-and-forget)
     try {
@@ -132,6 +126,9 @@ export async function POST(request: NextRequest) {
       feedback,
       sparksEarned,
       wisdomEarned,
+      progressDeltas: progress.progressDeltas,
+      updatedSkills: progress.updatedSkills,
+      nextRecommendation: progress.nextRecommendation,
     });
   } catch (error) {
     console.error("POST /api/writing/submit error:", error);

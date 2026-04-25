@@ -4,8 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import GameNav from "@/components/layout/GameNav";
-
-type WritingMode = "micro_skill_drill" | "guided_writing" | "full_task";
+import type {
+  WritingMode,
+  WritingProgressDelta,
+  WritingProgressSnapshot,
+  WritingSkillCode,
+} from "@/types/writing";
+import { getWritingSkillLabel } from "@/types/writing";
 type WritingPhase =
   | "mode_select"
   | "lesson"
@@ -15,28 +20,6 @@ type WritingPhase =
   | "full_task_setup"
   | "full_task_draft"
   | "complete";
-
-type SkillCode =
-  | "show_not_tell"
-  | "opening_hook"
-  | "paragraph_expansion"
-  | "sensory_detail"
-  | "sentence_variety"
-  | "prompt_interpretation"
-  // Narrative skills
-  | "word_choice"
-  | "dialogue"
-  | "idea_generation"
-  | "voice_and_tone"
-  | "narrative_structure"
-  | "main_event"
-  // Persuasive / writing craft skills (ExamSuccess WR domain)
-  | "persuasive_structure"
-  | "teel_framework"
-  | "argument_dimensions"
-  | "counter_argument"
-  | "writing_time_plan"
-  | "prompt_analysis";
 
 type LessonPayload = {
   title: string;
@@ -76,11 +59,18 @@ type WritingCoachingFeedback = {
   };
 };
 
+type CompletionRecommendation = {
+  mode: WritingMode;
+  skillCode: string | null;
+  skillLabel: string | null;
+  reason: string;
+};
+
 const FULL_TASK_TIMER_SECONDS = 25 * 60;
 
 type SkillGroup = {
   group: string;
-  skills: { code: SkillCode; label: string; summary: string; guidedOnly?: boolean }[];
+  skills: { code: WritingSkillCode; label: string; summary: string; guidedOnly?: boolean }[];
 };
 
 const SKILL_GROUPS: SkillGroup[] = [
@@ -298,7 +288,7 @@ export default function WritingPage() {
   const [profile, setProfile] = useState<any>(null);
   const [phase, setPhase] = useState<WritingPhase>("mode_select");
   const [selectedMode, setSelectedMode] = useState<WritingMode | null>(null);
-  const [selectedSkill, setSelectedSkill] = useState<SkillCode>("show_not_tell");
+  const [selectedSkill, setSelectedSkill] = useState<WritingSkillCode>("show_not_tell");
 
   const [lessonSessionId, setLessonSessionId] = useState<number | null>(null);
   const [lessonData, setLessonData] = useState<LessonPayload | null>(null);
@@ -312,6 +302,10 @@ export default function WritingPage() {
   const [completionMessage, setCompletionMessage] = useState("");
   const [sparksEarned, setSparksEarned] = useState(0);
   const [wisdomEarned, setWisdomEarned] = useState(0);
+  const [revisionCompleted, setRevisionCompleted] = useState(false);
+  const [progressDeltas, setProgressDeltas] = useState<WritingProgressDelta[]>([]);
+  const [updatedSkills, setUpdatedSkills] = useState<WritingProgressSnapshot[]>([]);
+  const [nextRecommendation, setNextRecommendation] = useState<CompletionRecommendation | null>(null);
   const [loading, setLoading] = useState(false);
   const [modePreparationLabel, setModePreparationLabel] = useState("");
   const [error, setError] = useState("");
@@ -319,6 +313,9 @@ export default function WritingPage() {
   const [timeRemaining, setTimeRemaining] = useState(FULL_TASK_TIMER_SECONDS);
   const [timerRunning, setTimerRunning] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const guardActiveRef = useRef(false);
+
+  const [showAbandonPrompt, setShowAbandonPrompt] = useState(false);
 
   useEffect(() => {
     const id = localStorage.getItem("activeProfileId");
@@ -350,6 +347,45 @@ export default function WritingPage() {
     return () => clearInterval(timerRef.current);
   }, [phase, timerRunning, timeRemaining]);
 
+  const ACTIVE_WRITING_PHASES: WritingPhase[] = ["lesson", "draft_1", "coaching", "draft_2", "full_task_setup", "full_task_draft"];
+  const isActiveWritingPhase = ACTIVE_WRITING_PHASES.includes(phase);
+
+  useEffect(() => {
+    if (!isActiveWritingPhase) {
+      guardActiveRef.current = false;
+      return;
+    }
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+
+    const handlePopState = () => {
+      window.history.pushState(null, "", window.location.href);
+      setShowAbandonPrompt(true);
+    };
+
+    // Push a history entry only once when first entering a protected phase
+    if (!guardActiveRef.current) {
+      window.history.pushState(null, "", window.location.href);
+      guardActiveRef.current = true;
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [isActiveWritingPhase]);
+
+  function handleAbandon() {
+    setShowAbandonPrompt(false);
+    resetSessionState();
+  }
+
   const fullTaskTimerColor = useMemo(() => {
     if (timeRemaining <= 120) return "#C84B31";
     if (timeRemaining <= 300) return "#E7C777";
@@ -369,6 +405,10 @@ export default function WritingPage() {
     setCompletionMessage("");
     setSparksEarned(0);
     setWisdomEarned(0);
+    setRevisionCompleted(false);
+    setProgressDeltas([]);
+    setUpdatedSkills([]);
+    setNextRecommendation(null);
     setLoading(false);
     setModePreparationLabel("");
     setError("");
@@ -405,6 +445,10 @@ export default function WritingPage() {
       setDraftText("");
       setRevisionText("");
       setCompletionMessage("");
+      setRevisionCompleted(false);
+      setProgressDeltas([]);
+      setUpdatedSkills([]);
+      setNextRecommendation(null);
       setPhase("lesson");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load writing lesson");
@@ -440,6 +484,10 @@ export default function WritingPage() {
       setSparksEarned(0);
       setFullTaskText("");
       setCompletionMessage("");
+      setRevisionCompleted(false);
+      setProgressDeltas([]);
+      setUpdatedSkills([]);
+      setNextRecommendation(null);
       setTimeRemaining(FULL_TASK_TIMER_SECONDS);
       setTimerRunning(false);
       setPhase("full_task_setup");
@@ -478,10 +526,64 @@ export default function WritingPage() {
       if (!response.ok) throw new Error(data.error || "Failed to coach first draft");
 
       setFeedback(data.feedback);
-      setRevisionText(draftText);
-      setPhase("coaching");
+      if (data.completed) {
+        setRevisionCompleted(Boolean(data.revisionCompleted));
+        setProgressDeltas(data.progressDeltas || []);
+        setUpdatedSkills(data.updatedSkills || []);
+        setNextRecommendation(data.nextRecommendation || null);
+        setSparksEarned(data.sparksEarned || 0);
+        setWisdomEarned(data.wisdomEarned || 0);
+        setCompletionMessage(data.completionMessage || "Writing session complete.");
+        setPhase("complete");
+      } else {
+        setRevisionText(draftText);
+        setPhase("coaching");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to coach first draft");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function finishWithoutRevision() {
+    if (!profile || !lessonSessionId || !lessonData || !selectedMode || selectedMode === "full_task") {
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/writing/exercise", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profileId: profile.id,
+          sessionId: lessonSessionId,
+          skillCode: selectedSkill,
+          mode: selectedMode,
+          promptText: lessonData.taskPrompt,
+          draftText,
+          stage: "draft_v1",
+          completeWithoutRevision: true,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to finish writing session");
+
+      setFeedback(data.feedback);
+      setRevisionCompleted(false);
+      setProgressDeltas(data.progressDeltas || []);
+      setUpdatedSkills(data.updatedSkills || []);
+      setNextRecommendation(data.nextRecommendation || null);
+      setSparksEarned(data.sparksEarned || 0);
+      setWisdomEarned(data.wisdomEarned || 0);
+      setCompletionMessage(data.completionMessage || "Writing session complete.");
+      setPhase("complete");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to finish writing session");
     } finally {
       setLoading(false);
     }
@@ -515,6 +617,10 @@ export default function WritingPage() {
 
       setSparksEarned(data.sparksEarned || 0);
       setWisdomEarned(data.wisdomEarned || 0);
+      setRevisionCompleted(Boolean(data.revisionCompleted));
+      setProgressDeltas(data.progressDeltas || []);
+      setUpdatedSkills(data.updatedSkills || []);
+      setNextRecommendation(data.nextRecommendation || null);
       setCompletionMessage(data.completionMessage || "Revision complete.");
       setPhase("complete");
     } catch (err) {
@@ -551,6 +657,10 @@ export default function WritingPage() {
       setFeedback(data.feedback);
       setSparksEarned(data.sparksEarned || 0);
       setWisdomEarned(data.wisdomEarned || 0);
+      setRevisionCompleted(false);
+      setProgressDeltas(data.progressDeltas || []);
+      setUpdatedSkills(data.updatedSkills || []);
+      setNextRecommendation(data.nextRecommendation || null);
       setCompletionMessage(
         "Stage review complete. Keep the revision instruction in mind the next time you write a full piece."
       );
@@ -571,6 +681,47 @@ export default function WritingPage() {
         style={{ background: "#3A1F1F", border: "1px solid #C84B31", color: "#F4D7D7" }}
       >
         {error}
+      </div>
+    );
+  }
+
+  function renderAbandonPrompt() {
+    if (!showAbandonPrompt) return null;
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center px-6"
+        style={{ background: "rgba(15, 28, 63, 0.84)", backdropFilter: "blur(3px)" }}
+      >
+        <div
+          className="w-full max-w-md rounded-3xl p-6"
+          style={{ background: "#1A2545", border: "1px solid #C84B31" }}
+        >
+          <p className="text-xs uppercase tracking-[0.22em] mb-2" style={{ color: "#F5A39A" }}>
+            Leave Active Writing Task
+          </p>
+          <h2 className="text-2xl font-bold mb-3" style={{ color: "#E7C777", fontFamily: "Georgia, serif" }}>
+            Continue this task or abandon it?
+          </h2>
+          <p className="mb-6" style={{ color: "#EADFC8", lineHeight: 1.75 }}>
+            The current writing task is still in progress. If you leave through the Hall navigation now, this session will be treated as abandoned.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowAbandonPrompt(false)}
+              className="flex-1 rounded-xl py-3 font-bold"
+              style={{ border: "1px solid #B68A3A55", color: "#E7C777" }}
+            >
+              Return to task
+            </button>
+            <button
+              onClick={handleAbandon}
+              className="flex-1 rounded-xl py-3 font-bold"
+              style={{ background: "#C84B31", color: "#FDF1E1" }}
+            >
+              Abandon and leave
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -745,7 +896,8 @@ export default function WritingPage() {
   if (phase === "lesson" && lessonData) {
     return (
       <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
-        <GameNav profile={profile} />
+        {renderAbandonPrompt()}
+        <GameNav profile={profile} isProtected={isActiveWritingPhase} protectedLabel="writing task" />
         <main className="max-w-4xl mx-auto px-6 py-10">
           {renderError()}
           <div
@@ -832,7 +984,7 @@ export default function WritingPage() {
 
           <div className="flex gap-3">
             <button
-              onClick={resetSessionState}
+              onClick={() => setShowAbandonPrompt(true)}
               className="flex-1 rounded-xl py-3 font-bold"
               style={{ border: "1px solid #B68A3A55", color: "#E7C777" }}
             >
@@ -857,7 +1009,8 @@ export default function WritingPage() {
   if (phase === "draft_1" && lessonData) {
     return (
       <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
-        <GameNav profile={profile} />
+        {renderAbandonPrompt()}
+        <GameNav profile={profile} isProtected={isActiveWritingPhase} protectedLabel="writing task" />
         <main className="max-w-4xl mx-auto px-6 py-10 relative">
           {renderError()}
           <div className="mb-5">
@@ -968,7 +1121,8 @@ export default function WritingPage() {
 
     return (
       <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
-        <GameNav profile={profile} />
+        {renderAbandonPrompt()}
+        <GameNav profile={profile} isProtected={isActiveWritingPhase} protectedLabel="writing task" />
         <main className="max-w-5xl mx-auto px-6 py-10">
           {renderError()}
           <div className="text-center mb-8">
@@ -1107,16 +1261,26 @@ export default function WritingPage() {
             </div>
           )}
 
-          <button
-            onClick={() => setPhase("draft_2")}
-            className="w-full rounded-xl py-3 font-bold"
-            style={{
-              background: "linear-gradient(135deg, #B68A3A, #E7C777)",
-              color: "#0F1C3F",
-            }}
-          >
-            Revise This Piece
-          </button>
+          <div className="grid gap-3 md:grid-cols-2">
+            <button
+              onClick={() => setPhase("draft_2")}
+              className="rounded-xl py-3 font-bold"
+              style={{
+                background: "linear-gradient(135deg, #B68A3A, #E7C777)",
+                color: "#0F1C3F",
+              }}
+            >
+              Revise This Piece
+            </button>
+            <button
+              onClick={() => void finishWithoutRevision()}
+              disabled={loading}
+              className="rounded-xl py-3 font-bold disabled:opacity-50"
+              style={{ border: "1px solid #B68A3A55", color: "#E7C777" }}
+            >
+              Finish Without Revising
+            </button>
+          </div>
         </main>
       </div>
     );
@@ -1125,7 +1289,8 @@ export default function WritingPage() {
   if (phase === "draft_2" && lessonData && feedback) {
     return (
       <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
-        <GameNav profile={profile} />
+        {renderAbandonPrompt()}
+        <GameNav profile={profile} isProtected={isActiveWritingPhase} protectedLabel="writing task" />
         <main className="max-w-4xl mx-auto px-6 py-10">
           {renderError()}
           <div className="grid gap-5 lg:grid-cols-2">
@@ -1197,35 +1362,38 @@ export default function WritingPage() {
   if (phase === "full_task_setup" && sceneData) {
     return (
       <div className="min-h-screen" style={{ background: "#0F1C3F" }}>
-        <GameNav profile={profile} />
-        <main className="max-w-2xl mx-auto px-6 py-12 text-center">
+        {renderAbandonPrompt()}
+        <GameNav profile={profile} isProtected={isActiveWritingPhase} protectedLabel="writing task" />
+        <main className="max-w-4xl mx-auto px-6 py-10">
           {renderError()}
-          <div className="text-7xl mb-5">🌌</div>
-          <h1 className="text-3xl font-bold mb-4" style={{ color: "#E7C777" }}>
-            Staged Full Task
-          </h1>
-          <p className="mb-8" style={{ color: "#EADFC8", opacity: 0.82 }}>
-            Use this longer task to test how your practice transfers into a full composition.
-          </p>
 
+          {/* Large image — takes up most of the screen */}
           {sceneData.imagePath && (
-            <div className="mb-6 rounded-3xl overflow-hidden">
+            <div
+              className="rounded-3xl overflow-hidden mb-6"
+              style={{ width: "100%", aspectRatio: "4/3", position: "relative" }}
+            >
               <img
                 src={sceneData.imagePath}
                 alt="Writing prompt scene"
-                className="w-full object-cover"
-                style={{ maxHeight: "320px" }}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: "block",
+                }}
               />
             </div>
           )}
 
+          {/* Prompt cue */}
           <div
             className="rounded-2xl p-5 mb-6"
             style={{ background: "#1E2E5A", border: "1px solid #B68A3A44" }}
           >
             <p
-              className="text-lg italic"
-              style={{ color: "#E7C777", fontFamily: "Georgia, serif", fontSize: "1.5rem", lineHeight: 1.7 }}
+              className="text-center italic"
+              style={{ color: "#E7C777", fontFamily: "Georgia, serif", fontSize: "1.4rem", lineHeight: 1.7 }}
             >
               &ldquo;{sceneData.promptCue}&rdquo;
             </p>
@@ -1238,7 +1406,7 @@ export default function WritingPage() {
               className="rounded-xl px-5 py-3 font-bold"
               style={{ border: "1px solid #B68A3A55", color: "#E7C777" }}
             >
-              New Scene
+              {loading ? "Generating…" : "New Scene"}
             </button>
             <button
               onClick={() => {
@@ -1263,19 +1431,27 @@ export default function WritingPage() {
   if (phase === "full_task_draft" && sceneData) {
     return (
       <div className="min-h-screen flex flex-col" style={{ background: "#0F1C3F" }}>
-        <GameNav profile={profile} />
+        {renderAbandonPrompt()}
+        <GameNav profile={profile} isProtected={isActiveWritingPhase} protectedLabel="writing task" />
 
         <div
           className="sticky top-14 z-40 px-6 py-3 flex items-center justify-between border-b"
           style={{ background: "#0F1C3F", borderColor: "#B68A3A33" }}
         >
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowAbandonPrompt(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+              style={{ background: "#1A2545", color: "#F5A39A", border: "1px solid #C84B31" }}
+            >
+              Leave
+            </button>
             <img
               src={sceneData.imagePath}
               alt=""
               className="w-12 h-12 rounded-lg object-cover"
             />
-            <p className="text-sm italic" style={{ color: "#B68A3A" }}>
+            <p className="text-sm italic hidden md:block" style={{ color: "#B68A3A" }}>
               &ldquo;{sceneData.promptCue}&rdquo;
             </p>
           </div>
@@ -1357,6 +1533,99 @@ export default function WritingPage() {
             )}
             <p style={{ color: "#EADFC8", opacity: 0.8 }}>{completionMessage}</p>
           </div>
+
+          <div className="grid gap-4 md:grid-cols-2 mb-8">
+            <div
+              className="rounded-2xl p-5"
+              style={{ background: "#1A2545", border: "1px solid #B68A3A33" }}
+            >
+              <p className="text-sm font-bold mb-2" style={{ color: "#E7C777" }}>
+                This Session
+              </p>
+              <p style={{ color: "#EADFC8", lineHeight: 1.8 }}>
+                Practised: {selectedMode === "full_task"
+                  ? "Full Writing Task"
+                  : getWritingSkillLabel(selectedSkill) ?? selectedSkill}
+              </p>
+              <p style={{ color: "#EADFC8", lineHeight: 1.8 }}>
+                Revision: {revisionCompleted ? "Completed" : "Not completed"}
+              </p>
+            </div>
+
+            <div
+              className="rounded-2xl p-5"
+              style={{ background: "#16213B", border: "1px solid #2E5A8E55" }}
+            >
+              <p className="text-sm font-bold mb-2" style={{ color: "#7EB8E8" }}>
+                Next Recommendation
+              </p>
+              <p style={{ color: "#EADFC8", lineHeight: 1.8 }}>
+                {nextRecommendation?.skillLabel
+                  ? `${nextRecommendation.skillLabel} · ${nextRecommendation.mode === "guided_writing" ? "Guided Writing" : "Quick Skill Drill"}`
+                  : nextRecommendation?.mode === "guided_writing"
+                    ? "Guided Writing"
+                    : "Quick Skill Drill"}
+              </p>
+              <p className="text-sm mt-1" style={{ color: "#EADFC8", opacity: 0.78, lineHeight: 1.7 }}>
+                {nextRecommendation?.reason ?? "Keep building one writing move at a time."}
+              </p>
+            </div>
+          </div>
+
+          {progressDeltas.length > 0 && (
+            <div
+              className="rounded-2xl p-5 mb-8"
+              style={{ background: "#16213B", border: "1px solid #2E5A8E55" }}
+            >
+              <p className="text-sm font-bold mb-3" style={{ color: "#7EB8E8" }}>
+                What Improved This Session
+              </p>
+              <div className="space-y-3">
+                {progressDeltas.map((delta, index) => (
+                  <div
+                    key={`${delta.skillCode}-${index}`}
+                    className="rounded-xl p-4"
+                    style={{ background: "#1A2545", border: "1px solid #B68A3A22" }}
+                  >
+                    <p className="font-bold" style={{ color: "#E7C777" }}>
+                      {getWritingSkillLabel(delta.skillCode) ?? delta.skillCode}
+                    </p>
+                    <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.8 }}>
+                      Level {delta.previousLevel} → {delta.newLevel}
+                    </p>
+                    <p className="text-sm mt-1" style={{ color: "#EADFC8", opacity: 0.76 }}>
+                      {delta.reason}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {updatedSkills.length > 0 && (
+            <div
+              className="rounded-2xl p-5 mb-8"
+              style={{ background: "#1A2545", border: "1px solid #B68A3A33" }}
+            >
+              <p className="text-sm font-bold mb-3" style={{ color: "#E7C777" }}>
+                Growing Skills
+              </p>
+              <div className="grid gap-3 md:grid-cols-3">
+                {updatedSkills.slice(0, 3).map((skill) => (
+                  <div
+                    key={skill.skillCode}
+                    className="rounded-xl p-4"
+                    style={{ background: "#0F1C3F", border: "1px solid #B68A3A22" }}
+                  >
+                    <p className="font-bold" style={{ color: "#E7C777" }}>{skill.skillLabel}</p>
+                    <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.8 }}>
+                      {skill.levelLabel} · {skill.totalSessions} sessions
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {feedback && (
             <div className="space-y-4 mb-8">

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chat } from "@/lib/gemini";
-import { generateSceneImage } from "@/lib/openai";
+import { chatOpenAI, generateSceneImage } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import {
   buildWritingScenePrompt,
@@ -29,22 +28,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate scene description via Claude
-    const description = await chat(
+    const description = await chatOpenAI(
       buildWritingScenePrompt(),
       buildWritingSceneUserPrompt(previousTopics),
       512
     );
 
-    // Generate image via DALL-E 3
+    // Image and prompt cue both depend on description but not on each other — run in parallel
     const sessionId = randomUUID();
-    const imagePath = await generateSceneImage(description.trim(), sessionId);
-
-    // Generate a one-line written prompt cue
-    const promptCue = await chat(
-      "You are a creative writing prompt designer for 10-year-olds. Given an image description, write a single evocative line (10-15 words max) that could appear alongside the image as a writing prompt. Do not tell them what to write — just hint at the scene. Output only the prompt line, no quotes.",
-      `Image: ${description.trim()}`
-    );
+    const [imagePath, promptCue] = await Promise.all([
+      generateSceneImage(description.trim(), sessionId),
+      chatOpenAI(
+        "You are a creative writing prompt designer for 10-year-olds. Given an image description, write a single evocative line (10-15 words max) that could appear alongside the image as a writing prompt. Do not tell them what to write — just hint at the scene. Output only the prompt line, no quotes.",
+        `Image: ${description.trim()}`
+      ),
+    ]);
 
     const session = await prisma.writingSession.create({
       data: {

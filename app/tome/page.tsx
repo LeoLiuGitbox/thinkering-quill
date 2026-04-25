@@ -6,6 +6,7 @@ import Link from "next/link";
 import GameNav from "@/components/layout/GameNav";
 import AscensionAvatarSigil from "@/components/ascension/AscensionAvatarSigil";
 import { ASCENSION_RANKS, getAscensionMeta } from "@/lib/ascension";
+import type { WritingProgressSnapshot, WritingProgressSummary } from "@/types/writing";
 
 interface KnowledgeMastery {
   knowledgePointCode: string;
@@ -37,6 +38,8 @@ interface Profile {
   attrWisdom: number;
   knowledgeMasteries: KnowledgeMastery[];
   badges: Badge[];
+  writingSkillProgress: WritingProgressSnapshot[];
+  writingSummary: WritingProgressSummary;
 }
 
 const MASTERY_LABEL: Record<number, { label: string; icon: string; colour: string }> = {
@@ -406,6 +409,102 @@ export default function TomePage() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+
+            <div className="rounded-xl p-5 border" style={{ background: "#1A2545", borderColor: "#B68A3A33" }}>
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="font-bold mb-1" style={{ color: "#E7C777" }}>Writing Growth</h3>
+                  <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.74 }}>
+                    Track what you practised, whether you revised, and which writing skills are growing.
+                  </p>
+                </div>
+                <Link
+                  href="/writing"
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all print:hidden"
+                  style={{ background: "#E7C777", color: "#0F1C3F" }}
+                >
+                  Open Writing
+                </Link>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-4 mb-4">
+                <div className="rounded-lg p-4" style={{ background: "#0F1C3F" }}>
+                  <p className="text-xs uppercase tracking-[0.18em]" style={{ color: "#B68A3A" }}>This Week</p>
+                  <p className="text-3xl font-bold mt-1" style={{ color: "#E7C777" }}>{profile.writingSummary?.thisWeekSessions ?? 0}</p>
+                  <p className="text-xs mt-1" style={{ color: "#EADFC8", opacity: 0.68 }}>writing sessions</p>
+                </div>
+                <div className="rounded-lg p-4" style={{ background: "#0F1C3F" }}>
+                  <p className="text-xs uppercase tracking-[0.18em]" style={{ color: "#B68A3A" }}>Revision</p>
+                  <p className="text-3xl font-bold mt-1" style={{ color: "#E7C777" }}>{profile.writingSummary?.revisionRate ?? 0}%</p>
+                  <p className="text-xs mt-1" style={{ color: "#EADFC8", opacity: 0.68 }}>
+                    {profile.writingSummary?.revisedOfRecent?.revised ?? 0} of {profile.writingSummary?.revisedOfRecent?.total ?? 0} recent sessions
+                  </p>
+                </div>
+                <div className="rounded-lg p-4" style={{ background: "#0F1C3F" }}>
+                  <p className="text-xs uppercase tracking-[0.18em]" style={{ color: "#B68A3A" }}>Revision Streak</p>
+                  <p className="text-3xl font-bold mt-1" style={{ color: "#E7C777" }}>{profile.writingSummary?.revisionStreak ?? 0}</p>
+                  <p className="text-xs mt-1" style={{ color: "#EADFC8", opacity: 0.68 }}>sessions in a row</p>
+                </div>
+                <div className="rounded-lg p-4" style={{ background: "#0F1C3F" }}>
+                  <p className="text-xs uppercase tracking-[0.18em]" style={{ color: "#B68A3A" }}>Current Focus</p>
+                  <p className="text-lg font-bold mt-1" style={{ color: "#E7C777" }}>
+                    {profile.writingSummary?.currentFocusSkill?.skillLabel ?? "Not started yet"}
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: "#EADFC8", opacity: 0.68 }}>
+                    {profile.writingSummary?.currentFocusSkill?.levelLabel ?? "Start a drill"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-lg p-4" style={{ background: "#16213B" }}>
+                  <p className="text-sm font-bold mb-3" style={{ color: "#7EB8E8" }}>Top Growing Skills</p>
+                  {profile.writingSummary?.topGrowingSkills?.length ? (
+                    <div className="space-y-3">
+                      {profile.writingSummary.topGrowingSkills.map((skill) => (
+                        <div key={skill.skillCode} className="rounded-lg p-3" style={{ background: "#0F1C3F" }}>
+                          <p className="font-bold" style={{ color: "#E7C777" }}>{skill.skillLabel}</p>
+                          <p className="text-xs" style={{ color: "#EADFC8", opacity: 0.72 }}>
+                            {skill.levelLabel} · {skill.totalSessions} sessions · {skill.revisionCompletions} revisions
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.7 }}>
+                      Finish a few writing sessions and your growing skills will appear here.
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-lg p-4" style={{ background: "#16213B" }}>
+                  <p className="text-sm font-bold mb-3" style={{ color: "#7EB8E8" }}>Recent Improvement</p>
+                  {profile.writingSummary?.recentImprovement ? (
+                    <div className="space-y-3">
+                      <p className="text-sm font-bold" style={{ color: "#E7C777" }}>
+                        {profile.writingSummary.recentImprovement.skillLabel}
+                      </p>
+                      <div className="rounded-lg p-3" style={{ background: "#3A1F1F", border: "1px solid #C84B31" }}>
+                        <p className="text-xs uppercase tracking-[0.18em] mb-1" style={{ color: "#F5A39A" }}>Before</p>
+                        <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}>
+                          {profile.writingSummary.recentImprovement.originalSnippet}
+                        </p>
+                      </div>
+                      <div className="rounded-lg p-3" style={{ background: "#17361E", border: "1px solid #2E6B3A" }}>
+                        <p className="text-xs uppercase tracking-[0.18em] mb-1" style={{ color: "#7DDB8D" }}>After</p>
+                        <p style={{ color: "#EADFC8", fontFamily: "Georgia, serif" }}>
+                          {profile.writingSummary.recentImprovement.revisedSnippet}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm" style={{ color: "#EADFC8", opacity: 0.7 }}>
+                      The first revised writing snippet will appear here once you complete a revision step.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
