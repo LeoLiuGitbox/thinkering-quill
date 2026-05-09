@@ -5,8 +5,9 @@ import { checkAndAwardBadges } from "@/lib/badges";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { sessionId, sectionIndex } = body as {
+    const { sessionId, profileId, sectionIndex } = body as {
       sessionId: number;
+      profileId?: number;
       sectionIndex: number;
     };
 
@@ -15,6 +16,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch all questions for this session
+    const examSessionForAuth = await prisma.examSession.findUnique({
+      where: { id: sessionId },
+      select: { profileId: true },
+    });
+    if (!examSessionForAuth || (profileId && examSessionForAuth.profileId !== profileId)) {
+      return NextResponse.json({ error: "Exam session not found" }, { status: 404 });
+    }
+
     const allQuestions = await prisma.examQuestion.findMany({
       where: { sessionId },
       orderBy: { questionIndex: "asc" },

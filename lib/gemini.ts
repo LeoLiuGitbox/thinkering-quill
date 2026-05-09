@@ -53,38 +53,52 @@ export async function chat(
   });
 }
 
-// ─── chatPro — Gemini Pro (kept for future use / fallback) ───────────────────
+// ─── chatPro — Gemini Pro (JSON structured output: MCQ, AR, RC, exam) ────────
 
 export async function chatPro(
   system: string,
   user: string,
-  maxTokens = 8192
+  maxTokens = 16384
 ): Promise<string> {
   return withRetry(async () => {
     const result = await proModel.generateContent({
       systemInstruction: system,
       contents: [{ role: "user", parts: [{ text: user }] }],
-      generationConfig: { maxOutputTokens: maxTokens },
+      generationConfig: {
+        maxOutputTokens: maxTokens,
+        responseMimeType: "application/json",
+      },
     });
+    const candidate = result.response.candidates?.[0];
+    if (candidate?.finishReason === "MAX_TOKENS") {
+      throw new Error(`Gemini Pro truncated output (MAX_TOKENS at ${maxTokens})`);
+    }
     return result.response.text();
   });
 }
 
-// ─── chatFlash — Flash Latest (fast structured output for question generation)
+// ─── chatFlash — Flash Latest (fast structured JSON: quest generation) ────────
 
 const flashLatestModel = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
 export async function chatFlash(
   system: string,
   user: string,
-  maxTokens = 8192
+  maxTokens = 16384
 ): Promise<string> {
   return withRetry(async () => {
     const result = await flashLatestModel.generateContent({
       systemInstruction: system,
       contents: [{ role: "user", parts: [{ text: user }] }],
-      generationConfig: { maxOutputTokens: maxTokens },
+      generationConfig: {
+        maxOutputTokens: maxTokens,
+        responseMimeType: "application/json",
+      },
     });
+    const candidate = result.response.candidates?.[0];
+    if (candidate?.finishReason === "MAX_TOKENS") {
+      throw new Error(`Gemini Flash truncated output (MAX_TOKENS at ${maxTokens})`);
+    }
     return result.response.text();
   });
 }

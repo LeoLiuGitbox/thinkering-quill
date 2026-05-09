@@ -56,9 +56,32 @@ model QuestSession {
   startedAt      DateTime @default(now())
   completedAt    DateTime?
 
-  attempts QuizAttempt[]
+  questions QuestQuestion[]
+  attempts  QuizAttempt[]
 
   @@index([profileId, region, startedAt])
+}
+
+model QuestQuestion {
+  id                 Int          @id @default(autoincrement())
+  questSessionId     Int
+  questSession       QuestSession @relation(fields: [questSessionId], references: [id], onDelete: Cascade)
+  questionIndex      Int
+  questionHash       String
+  questionText       String
+  passageTitle       String?
+  contextText        String?
+  optionsJson        String
+  visualDataJson     String?
+  correctAnswer      String
+  explanationText    String?
+  knowledgePointCode String?
+  microSkillCode     String?
+  minimumReadTimeMs  Int?
+  createdAt          DateTime     @default(now())
+
+  @@unique([questSessionId, questionIndex])
+  @@index([questSessionId, questionHash])
 }
 
 model QuizAttempt {

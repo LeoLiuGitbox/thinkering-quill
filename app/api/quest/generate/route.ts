@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { chatFlash as chat, parseJSON } from "@/lib/gemini";
-import { buildSessionAllocation } from "@/lib/session";
+import { buildSessionAllocation, hashQuestion } from "@/lib/session";
 import {
   buildQRSystemPrompt,
   buildQRBatchPrompt,
@@ -21,6 +21,31 @@ import {
 import { PAPER_FOLDING_QUESTIONS } from "@/lib/staticQuestions/paperFolding";
 import { TopicAllocation } from "@/lib/session";
 import { getDefaultMicroSkillCode } from "@/lib/knowledge/microSkills";
+import { validateQuestQuestions } from "@/lib/aiValidation";
+
+function getString(question: Record<string, unknown>, key: string) {
+  const value = question[key];
+  return typeof value === "string" ? value : "";
+}
+
+function getNullableString(question: Record<string, unknown>, key: string) {
+  const value = question[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function getQuestionOptions(question: Record<string, unknown>) {
+  if (Array.isArray(question.options)) return question.options;
+  if (Array.isArray(question.options_ar)) return question.options_ar;
+  return [];
+}
+
+function getVisualData(question: Record<string, unknown>) {
+  const visual: Record<string, unknown> = {};
+  for (const key of ["gridData", "options_ar", "staticSvg", "optionSvgs", "type", "isStatic"]) {
+    if (question[key] !== undefined) visual[key] = question[key];
+  }
+  return Object.keys(visual).length > 0 ? JSON.stringify(visual) : null;
+}
 
 function buildTargetedAllocation(params: {
   focusKnowledgePointCodes: KnowledgePointCode[];
@@ -154,7 +179,10 @@ export async function POST(request: NextRequest) {
     }
 
     const raw = await chat(systemPrompt, userPrompt, 8192);
-    questions = parseJSON<unknown[]>(raw);
+    questions = validateQuestQuestions(
+      parseJSON<unknown[]>(raw),
+      subject as "QR" | "AR" | "RC"
+    ) as unknown[];
 
     questions = questions.map((q, idx) => {
       const question = q as Record<string, unknown>;
@@ -216,20 +244,77 @@ export async function POST(request: NextRequest) {
       questions = flat.slice(0, sessionLength);
     }
 
+    const preparedQuestions = questions.map((q, questionIndex) => {
+      const question = q as Record<string, unknown>;
+      const questionText = getString(question, "questionText");
+      const options = getQuestionOptions(question);
+      const correctAnswer = getString(question, "correct");
+      return {
+        clientQuestion: {
+          ...question,
+          questionIndex,
+          questionHash: hashQuestion(
+            questionText,
+            options.map((option) =>
+              typeof option === "string" ? option : JSON.stringify(option)
+            )
+          ),
+        },
+        dbQuestion: {
+          questionIndex,
+          questionHash: hashQuestion(
+            questionText,
+            options.map((option) =>
+              typeof option === "string" ? option : JSON.stringify(option)
+            )
+          ),
+          questionText,
+          passageTitle: getNullableString(question, "passageTitle"),
+          contextText: getNullableString(question, "context"),
+          optionsJson: JSON.stringify(options),
+          visualDataJson: getVisualData(question),
+          correctAnswer,
+          explanationText: getNullableString(question, "explanation"),
+          knowledgePointCode: getNullableString(question, "knowledgePointCode"),
+          microSkillCode: getNullableString(question, "microSkillCode"),
+          minimumReadTimeMs:
+            typeof question.estimatedReadTimeMs === "number"
+              ? question.estimatedReadTimeMs
+              : null,
+        },
+      };
+    });
+
     const questSession = await prisma.questSession.create({
       data: {
         profileId,
         region,
         sessionLength,
         difficulty,
-        questionCount: Array.isArray(questions) ? questions.length : sessionLength,
+        questionCount: preparedQuestions.length,
+        questions: {
+          create: preparedQuestions.map(({ dbQuestion }) => dbQuestion),
+        },
       },
-      select: { id: true },
+      include: {
+        questions: {
+          orderBy: { questionIndex: "asc" },
+          select: { id: true, questionIndex: true },
+        },
+      },
     });
+
+    const questionIdByIndex = new Map(
+      questSession.questions.map((question) => [question.questionIndex, question.id])
+    );
+    const clientQuestions = preparedQuestions.map(({ clientQuestion }) => ({
+      ...clientQuestion,
+      questQuestionId: questionIdByIndex.get(clientQuestion.questionIndex),
+    }));
 
     return NextResponse.json({
       questSessionId: questSession.id,
-      questions,
+      questions: clientQuestions,
       allocation: {
         familiar,
         challenge,

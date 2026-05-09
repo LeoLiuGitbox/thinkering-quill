@@ -65,6 +65,13 @@ K12 database work is currently kept as a separate data-layer track:
 
 ## Development
 
+Create a local env file with at least:
+
+```bash
+DATABASE_URL="file:./prisma/dev.db"
+GOOGLE_AI_KEY="your-google-ai-key"
+```
+
 Start the local development server:
 
 ```bash
@@ -81,3 +88,14 @@ http://localhost:3000
 
 - The current codebase still contains older assumptions in places; PRD and DESIGN now reflect the updated Writing direction.
 - K12 knowledge-structure integration is being treated as a separate architecture/data track and is not yet the default application backbone.
+- Review screens are expected to teach from mistakes: missed or skipped questions should show the full question, context, student answer, correct answer, and explanation.
+- This is a local-first app. It uses lightweight profile selection, but score-affecting routes should compute correctness from server-persisted questions rather than trusting client-submitted answers.
+
+## Checks
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+npm run check
+```

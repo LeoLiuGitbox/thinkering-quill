@@ -91,6 +91,7 @@ export default function TournamentSessionPage() {
   // Within a section
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({}); // key: "sec-q"
+  const [examReviewFilter, setExamReviewFilter] = useState<"wrong" | "all">("wrong");
   const [seenQuestions, setSeenQuestions] = useState<Set<number>>(new Set());
   const [writingText, setWritingText] = useState("");
 
@@ -111,6 +112,21 @@ export default function TournamentSessionPage() {
   // Submission state
   const [submitting, setSubmitting] = useState(false);
 
+  async function loadExamSnapshot() {
+    const examData = await fetch(`/api/exam/${sessionId}`).then((r) => r.json());
+    setExam(examData);
+    const existingAnswers: Record<string, string> = {};
+    examData.sections?.forEach((section: ExamSection, si: number) => {
+      section.questions.forEach((q: ExamQuestion, qi: number) => {
+        if (q.userAnswer) {
+          existingAnswers[`${si}-${qi}`] = q.userAnswer;
+        }
+      });
+    });
+    setAnswers(existingAnswers);
+    return examData as ExamSession;
+  }
+
   // ---------------------------------------------------------------------------
   // Load data
   // ---------------------------------------------------------------------------
@@ -121,23 +137,9 @@ export default function TournamentSessionPage() {
       router.push("/login");
       return;
     }
-    Promise.all([
-      fetch(`/api/profile/${profileId}`).then((r) => r.json()),
-      fetch(`/api/exam/${sessionId}`).then((r) => r.json()),
-    ])
-      .then(([profileData, examData]) => {
+    Promise.all([fetch(`/api/profile/${profileId}`).then((r) => r.json()), loadExamSnapshot()])
+      .then(([profileData]) => {
         setProfile(profileData.profile);
-        setExam(examData);
-        // Restore any existing answers
-        const existingAnswers: Record<string, string> = {};
-        examData.sections?.forEach((section: ExamSection, si: number) => {
-          section.questions.forEach((q: ExamQuestion, qi: number) => {
-            if (q.userAnswer) {
-              existingAnswers[`${si}-${qi}`] = q.userAnswer;
-            }
-          });
-        });
-        setAnswers(existingAnswers);
         setPageState("section_intro");
       })
       .catch((err) => {
@@ -265,6 +267,7 @@ export default function TournamentSessionPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sessionId: numId,
+            profileId: profile?.id,
             sectionIndex: currentSectionIdx,
             questionIndex: qi,
             answer: writingText,
@@ -277,6 +280,7 @@ export default function TournamentSessionPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: parseInt(sessionId),
+          profileId: profile?.id,
           sectionIndex: currentSectionIdx,
         }),
       });
@@ -292,6 +296,7 @@ export default function TournamentSessionPage() {
       }));
 
       if (data.completed) {
+        await loadExamSnapshot();
         setPageState("completed");
         return;
       }
@@ -360,6 +365,7 @@ export default function TournamentSessionPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: parseInt(sessionId),
+          profileId: profile?.id,
           sectionIndex: currentSectionIdx,
           questionIndex: globalQIdx,
           answer,
@@ -963,17 +969,36 @@ export default function TournamentSessionPage() {
                 >
                   Review Answers
                 </h1>
-                <button
-                  onClick={() => setPageState("completed")}
-                  className="text-sm px-4 py-2 rounded-xl"
-                  style={{
-                    color: "#B68A3A",
-                    border: "1px solid #B68A3A44",
-                    background: "#1E2E5A",
-                  }}
-                >
-                  ← Back to Results
-                </button>
+                <div className="flex gap-2 flex-wrap justify-end">
+                  {([
+                    { key: "wrong", label: "Wrong only" },
+                    { key: "all", label: "All questions" },
+                  ] as const).map((filter) => (
+                    <button
+                      key={filter.key}
+                      onClick={() => setExamReviewFilter(filter.key)}
+                      className="text-sm px-4 py-2 rounded-xl font-semibold"
+                      style={{
+                        color: examReviewFilter === filter.key ? "#0F1C3F" : "#EADFC8",
+                        border: `1px solid ${examReviewFilter === filter.key ? "#E7C777" : "#B68A3A44"}`,
+                        background: examReviewFilter === filter.key ? "#B68A3A" : "#1E2E5A",
+                      }}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setPageState("completed")}
+                    className="text-sm px-4 py-2 rounded-xl"
+                    style={{
+                      color: "#B68A3A",
+                      border: "1px solid #B68A3A44",
+                      background: "#1E2E5A",
+                    }}
+                  >
+                    Back to Results
+                  </button>
+                </div>
               </div>
 
               {exam.sections.map((section, si) => {
@@ -987,7 +1012,14 @@ export default function TournamentSessionPage() {
                       {section.subject}
                     </h2>
                     <div className="space-y-3">
-                      {section.questions.map((q, qi) => {
+                      {section.questions
+                        .map((q, qi) => ({ q, qi }))
+                        .filter(({ q, qi }) => {
+                          if (examReviewFilter === "all") return true;
+                          const userAns = answers[`${si}-${qi}`] || q.userAnswer || null;
+                          return userAns !== q.correctAnswer;
+                        })
+                        .map(({ q, qi }) => {
                         const userAns = answers[`${si}-${qi}`] || q.userAnswer || null;
                         const correct = q.correctAnswer;
                         const isCorrect = userAns === correct;
@@ -1023,13 +1055,52 @@ export default function TournamentSessionPage() {
                                 >
                                   {qi + 1}.
                                 </span>
-                                {q.questionText.slice(0, 120)}
-                                {q.questionText.length > 120 ? "…" : ""}
+                                {q.questionText}
                               </p>
                               <span className="text-lg flex-shrink-0">
                                 {!userAns ? "⬜" : isCorrect ? "✅" : "❌"}
                               </span>
                             </div>
+                            {opts.length > 0 && (
+                              <div className="space-y-2 mb-4">
+                                {opts.map((opt, optionIdx) => {
+                                  const label = getOptionLabel(optionIdx);
+                                  const isUserChoice = userAns === label;
+                                  const isCorrectChoice = correct === label;
+                                  return (
+                                    <div
+                                      key={label}
+                                      className="px-4 py-3 rounded-xl text-sm"
+                                      style={{
+                                        background: isCorrectChoice
+                                          ? "#1B3A2E"
+                                          : isUserChoice
+                                            ? "#3A1F26"
+                                            : "#0F1C3F",
+                                        border: `1px solid ${
+                                          isCorrectChoice
+                                            ? "#2E6B3A"
+                                            : isUserChoice
+                                              ? "#7F1D1D"
+                                              : "#B68A3A22"
+                                        }`,
+                                        color: "#EADFC8",
+                                      }}
+                                    >
+                                      <span
+                                        className="font-bold mr-2"
+                                        style={{ color: isCorrectChoice ? "#4ADE80" : "#B68A3A" }}
+                                      >
+                                        {label}.
+                                      </span>
+                                      {opt.replace(/^[A-D]\.\s*/, "")}
+                                      {isCorrectChoice && <span style={{ color: "#4ADE80" }}>  Correct answer</span>}
+                                      {!isCorrectChoice && isUserChoice && <span style={{ color: "#FCA5A5" }}>  Your choice</span>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                             <div
                               className="text-xs flex gap-4"
                               style={{ color: "#EADFC8", opacity: 0.7 }}
@@ -1049,16 +1120,27 @@ export default function TournamentSessionPage() {
                             </div>
                             {!isCorrect && q.explanation && (
                               <p
-                                className="text-xs mt-2 italic"
-                                style={{ color: "#EADFC8", opacity: 0.6 }}
+                                className="text-sm mt-3 leading-relaxed"
+                                style={{ color: "#EADFC8", opacity: 0.82 }}
                               >
-                                {q.explanation.slice(0, 200)}
-                                {q.explanation.length > 200 ? "…" : ""}
+                                {q.explanation}
                               </p>
                             )}
                           </div>
                         );
                       })}
+                      {section.questions.filter((q, qi) => {
+                        if (examReviewFilter === "all") return true;
+                        const userAns = answers[`${si}-${qi}`] || q.userAnswer || null;
+                        return userAns !== q.correctAnswer;
+                      }).length === 0 && (
+                        <div
+                          className="p-4 rounded-xl text-sm"
+                          style={{ background: "#1E2E5A", border: "1px solid #2E6B3A", color: "#EADFC8" }}
+                        >
+                          No missed questions in this section.
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

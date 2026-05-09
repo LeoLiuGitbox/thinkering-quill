@@ -2,8 +2,9 @@
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 // @ts-ignore — Prisma 7 generated client
 import { PrismaClient } from "../app/generated/prisma/client";
+import path from "path";
 
-const DB_URL = "file:///Users/leo/Project/thinkering_quill/prisma/dev.db";
+const DB_URL = process.env.DATABASE_URL ?? `file://${path.join(process.cwd(), "prisma/dev.db")}`;
 const adapter = new PrismaLibSql({ url: DB_URL });
 const prisma = new PrismaClient({ adapter } as never);
 

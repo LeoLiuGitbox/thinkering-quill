@@ -1,9 +1,9 @@
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 // @ts-ignore — Prisma 7 generated client
 import { PrismaClient } from "../app/generated/prisma/client";
+import path from "path";
 
-// Absolute path for local SQLite
-const DB_URL = "file:///Users/leo/Project/thinkering_quill/prisma/dev.db";
+const DB_URL = process.env.DATABASE_URL ?? `file://${path.join(process.cwd(), "prisma/dev.db")}`;
 
 const globalForPrisma = globalThis as unknown as {
   prisma: InstanceType<typeof PrismaClient> | undefined;

@@ -25,6 +25,7 @@ export async function GET(
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
+    const canShowReviewAnswers = session.status === "completed";
 
     // Parse sectionIndex from difficulty field ("section:0", "section:1", etc.)
     // Group questions into sections
@@ -102,12 +103,12 @@ export async function GET(
           questions: section.questions.map((q) => ({
             questionText: q.questionText,
             optionsJson: q.optionsJson,
-            correctAnswer: q.correctAnswer,
-            explanation: q.explanation,
+            correctAnswer: canShowReviewAnswers ? q.correctAnswer : "",
+            explanation: canShowReviewAnswers ? q.explanation : "",
             topic: q.topic,
             difficulty: q.difficulty,
             userAnswer: q.userAnswer,
-            isCorrect: q.isCorrect,
+            isCorrect: canShowReviewAnswers ? q.isCorrect : null,
           })),
         };
       });

@@ -10,6 +10,9 @@ import QuestReviewCards from "@/components/quest/QuestReviewCards";
 import { WeakPointSummary } from "@/types/game";
 
 interface Question {
+  questQuestionId?: number;
+  questionIndex?: number;
+  questionHash?: string;
   questionText: string;
   context?: string;
   passageTitle?: string;
@@ -351,28 +354,23 @@ export default function QuestPlayPage() {
     const oldRank = profile?.rank;
 
     for (const state of questions) {
-      if (!state.userAnswer) continue;
       try {
+        const timeSpentMs =
+          state.timeSpentMs ??
+          (state.startTimeMs ? Date.now() - state.startTimeMs : undefined);
         const res = await fetch("/api/quest/attempt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             questSessionId,
             profileId,
-            region,
-            questionText: state.question.questionText,
-            passageTitle: state.question.passageTitle,
-            contextText: state.question.context,
-            optionsJson: JSON.stringify(state.question.options || []),
-            correctAnswer: state.question.correct,
-            explanationText: state.question.explanation,
+            questQuestionId: state.question.questQuestionId,
+            questionIndex: state.question.questionIndex,
+            questionHash: state.question.questionHash || state.questionHash,
             userAnswer: state.userAnswer,
             firstChoice: state.firstChoice,
-            knowledgePointCode: state.question.knowledgePointCode,
-            microSkillCode: state.question.microSkillCode,
             hintsUsed: state.hintsUsed,
-            timeSpentMs: state.timeSpentMs,
-            minimumReadTimeMs: state.question.estimatedReadTimeMs,
+            timeSpentMs,
           }),
         });
         const data = await res.json();
@@ -686,6 +684,8 @@ export default function QuestPlayPage() {
   }
 
   if (showReflection) {
+    const REFLECTION_MIN_CHARS = 20;
+    const reflectionQualifies = reflectionText.trim().length >= REFLECTION_MIN_CHARS;
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "#0F1C3F" }}>
         <div className="max-w-lg w-full mx-auto px-6 py-12 text-center">
@@ -701,32 +701,41 @@ export default function QuestPlayPage() {
             onChange={(e) => setReflectionText(e.target.value)}
             placeholder="Write your thoughts here (optional)…"
             rows={4}
-            className="w-full px-4 py-3 rounded-xl mb-6 outline-none resize-none"
+            className="w-full px-4 py-3 rounded-xl outline-none resize-none"
             style={{
               background: "#1E2E5A",
-              border: "1px solid #B68A3A",
+              border: `1px solid ${reflectionQualifies ? "#E7C777" : "#B68A3A"}`,
               color: "#EADFC8",
               fontFamily: "Georgia, serif",
             }}
           />
+          {/* Character progress hint */}
+          <p className="text-xs mt-2 mb-6 text-right" style={{ color: "#B68A3A", opacity: reflectionQualifies ? 0 : 0.7 }}>
+            {reflectionText.trim().length > 0 && !reflectionQualifies
+              ? `${REFLECTION_MIN_CHARS - reflectionText.trim().length} more characters to earn +8 ✦`
+              : " "}
+          </p>
           <div className="flex gap-3">
             <button
               onClick={() => completeReflection()}
               className="flex-1 py-3 rounded-xl text-sm transition-all"
               style={{ color: "#B68A3A", border: "1px solid #B68A3A33" }}
             >
-              Skip (+0 ✦)
+              Skip
             </button>
             <button
               onClick={completeReflection}
               className="flex-1 py-3 rounded-xl font-bold transition-all hover:scale-[1.02]"
               style={{
-                background: "linear-gradient(135deg, #B68A3A, #E7C777)",
-                color: "#0F1C3F",
+                background: reflectionQualifies
+                  ? "linear-gradient(135deg, #B68A3A, #E7C777)"
+                  : "#1E2E5A",
+                color: reflectionQualifies ? "#0F1C3F" : "#EADFC8",
+                border: reflectionQualifies ? "none" : "1px solid #B68A3A44",
                 fontFamily: "Georgia, serif",
               }}
             >
-              {reflectionText.trim() ? "Submit (+8 ✦)" : "Continue"}
+              {reflectionQualifies ? "Submit (+8 ✦)" : "Continue"}
             </button>
           </div>
         </div>
@@ -1126,20 +1135,20 @@ export default function QuestPlayPage() {
             {/* Hint content */}
             {current.showHint1 && current.hint1 && (
               <div
-                className="mt-3 p-4 rounded-xl text-sm leading-relaxed"
-                style={{ background: "#2A1E0F", border: "1px solid #B68A3A", color: "#EADFC8" }}
+                className="mt-3 p-5 rounded-xl leading-relaxed"
+                style={{ background: "#2A1E0F", border: "1px solid #B68A3A", color: "#EADFC8", fontSize: "1.05rem" }}
               >
-                <p className="font-bold mb-1" style={{ color: "#E7C777" }}>📜 Ancient Scroll I</p>
-                <p style={{ fontStyle: "italic" }}>{current.hint1}</p>
+                <p className="font-bold mb-2" style={{ color: "#E7C777" }}>📜 Ancient Scroll I</p>
+                <p style={{ fontStyle: "italic", lineHeight: 1.7 }}>{current.hint1}</p>
               </div>
             )}
             {current.showHint2 && current.hint2 && (
               <div
-                className="mt-3 p-4 rounded-xl text-sm leading-relaxed"
-                style={{ background: "#2A1E0F", border: "1px solid #E7C777", color: "#EADFC8" }}
+                className="mt-3 p-5 rounded-xl leading-relaxed"
+                style={{ background: "#2A1E0F", border: "1px solid #E7C777", color: "#EADFC8", fontSize: "1.05rem" }}
               >
-                <p className="font-bold mb-1" style={{ color: "#E7C777" }}>📜 Ancient Scroll II</p>
-                <p style={{ fontStyle: "italic" }}>{current.hint2}</p>
+                <p className="font-bold mb-2" style={{ color: "#E7C777" }}>📜 Ancient Scroll II</p>
+                <p style={{ fontStyle: "italic", lineHeight: 1.7 }}>{current.hint2}</p>
               </div>
             )}
           </div>

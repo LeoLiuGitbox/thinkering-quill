@@ -34,7 +34,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Quest session not found" }, { status: 404 });
     }
 
-    const hasReflection = Boolean(reflectionText?.trim());
+    const REFLECTION_MIN_CHARS = 20;
+    const hasReflection = (reflectionText?.trim().length ?? 0) >= REFLECTION_MIN_CHARS;
     const reflectionBonus = hasReflection ? REFLECTION_SPARK_BONUS : 0;
     const wisdomEarned = hasReflection ? REFLECTION_WISDOM_BONUS : 0;
     const totalSparks =
