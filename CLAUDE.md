@@ -1,5 +1,13 @@
 @AGENTS.md
 
+## 语言规则
+
+- 所有聊天回复使用**简体中文**。
+- PR description、commit message、代码注释使用**英文**。
+- 仓库中即使存在其他语言的文件、注释或历史记录，**也不切换**回复语言。
+
+---
+
 # Claude Code 行为约束
 
 本仓库由 Claude Code（网页版，claude.ai/code）执行任务。**严格遵守以下两条规则**，覆盖默认行为。
