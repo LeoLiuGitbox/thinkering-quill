@@ -1,4 +1,10 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 @AGENTS.md
+
+---
 
 ## 语言规则
 
@@ -92,63 +98,108 @@ caveman **只管聊天回复**。以下场景**正常写**，不许 caveman：
 2. 这次工具调用能不能并到上一次？能 → 并。
 3. 这次 Read 能不能换成 Grep？能 → 换。
 4. 当前是聊天回复还是 PR description？后者 → 退出 caveman。
+5. 当前是 commit message？是 → 英文 + Conventional Commits。
 
-# Thinkering Quill Working Notes
+---
+
+# Thinkering Quill — Codebase Guide
+
+## Commands
+
+```bash
+npm run dev          # start dev server (localhost:3000)
+npm run typecheck    # tsc --noEmit
+npm run test         # node --test tests/*.test.mjs
+npm run build        # production build
+npm run check        # typecheck + test + build (run before pushing)
+npm run db:migrate   # prisma migrate dev
+npm run db:seed      # seed with prisma/seed.ts
+```
+
+Required `.env`:
+```
+DATABASE_URL="file:./prisma/dev.db"
+GOOGLE_AI_KEY="your-google-ai-key"
+```
+
+---
+
+## Architecture
+
+### Stack
+
+- **Next.js 16** (App Router) — read `node_modules/next/dist/docs/` before writing routing or server code; this version has breaking changes
+- **Prisma 7** + **libsql** (SQLite) — client generated into `app/generated/prisma/client`, imported via `lib/prisma.ts`
+- **Tailwind CSS 4** + **Framer Motion**
+- **Google Gemini** as primary AI (via `lib/gemini.ts`); `lib/claude.ts` and `lib/openai.ts` also present but secondary
+
+### AI model split (`lib/gemini.ts`)
+
+| Function | Model | Use |
+|---|---|---|
+| `chat()` | gemini-flash-lite-latest | hints, writing feedback, oracle, spells |
+| `chatPro()` | gemini-pro-latest | MCQ/AR/RC generation, exam creation — returns JSON |
+| `chatFlash()` | gemini-flash-latest | quest generation — returns JSON |
+| `stream()` | gemini-flash-lite-latest | Oracle SSE streaming |
+
+All functions retry 3× on 503. `parseJSON()` strips markdown fences before `JSON.parse`.
+
+### Data layer
+
+Single SQLite file via Prisma + libsql adapter. Key models:
+
+- `Profile` — learner profile, owns all sessions and progress
+- `QuestSession` / `QuestQuestion` — objective practice (QR / AR / RC)
+- `WritingSession` — writing coaching sessions; `sessionMode` ∈ `micro_skill_drill | guided_writing | full_task`
+- `WritingSkillProgress` — per-skill coaching progress, separate from mastery
+- `KnowledgeMastery` — per-knowledge-point mastery (1–5) used for 80/20 session composition
+- `DailyActivity`, `Badge`, `Artifact` — gamification layer
+
+Schema lives in `prisma/schema.prisma`. After schema changes run `npm run db:migrate` then restart the dev server (the libsql adapter requires a fresh connection).
+
+### App routes (`app/`)
+
+| Route | Purpose |
+|---|---|
+| `app/quest/` | QR / AR / RC practice sessions |
+| `app/writing/` | Writing coaching (mode_select → lesson → draft_1 → coaching → draft_2) |
+| `app/exam/` | Timed full exam mode |
+| `app/map/` | World map / subject selection |
+| `app/home/` | Profile home, streaks, stats |
+| `app/oracle/` | AI tutor (SSE streaming) |
+| `app/parent/` | Parent dashboard |
+| `app/api/` | All server actions as Route Handlers |
+
+### Key `lib/` files
+
+- `lib/session.ts` — 80/20 session composition using `KnowledgeMastery`
+- `lib/progression.ts` — XP, rank, mastery level calculations
+- `lib/rewards.ts` — spark (currency) calculations per session type
+- `lib/writingProgress.ts` — writing skill advancement after session completion
+- `lib/prompts/` — all AI prompt builders, split by domain (mcq, writing, hint, oracle, spells, integrity)
+- `lib/integrity.ts` — answer integrity checks (server-side, never trust client-submitted answers)
+- `types/game.ts` — shared enums: `Rank`, `MasteryLevel`, `SessionLength`, `KnowledgePointCode`
+- `types/writing.ts` — `WritingMode`, `WritingSkillCode`, `WritingCoachingFeedback`
+
+### Correctness invariant
+
+Score-affecting routes recompute correctness from server-persisted question data. Never trust answer correctness from the client body.
+
+---
 
 ## Product Direction
 
-Thinkering Quill is currently defined as a focused **WA GATE / ASET prep app**.
+Thinkering Quill is a **WA GATE / ASET prep app** for primary-aged learners.
 
-- **Quantitative Reasoning**
-- **Abstract Reasoning**
-- **Reading Comprehension**
+**Objective sections** (QR / AR / RC): keep the existing drill / mastery / upgrade loop intact. Do not broadly rewrite.
 
-These three objective areas keep the existing practice / progression / upgrade loop.
+**Writing**: coaching system with three modes (`micro_skill_drill`, `guided_writing`, `full_task`). AI role is scaffolding, examples, revision prompts, and feedback wording — not authoritative scoring. Image prompts are only used for staged `full_task` sessions.
 
-## Writing Direction
-
-Writing should no longer be treated as:
-
-- image-first by default
-- one-shot full composition submission
-- AI-first scoring and judgement
-
-Writing should now be treated as a **writing coaching system** with three modes:
-
-- `micro_skill_drill`
-- `guided_writing`
-- `full_task`
-
-The Writing module should prioritise:
-
-- prompt interpretation
-- idea selection
-- structure
-- detail and specificity
-- `show, not tell`
-- revision
-
-## AI Role
-
-AI should mainly be used for:
-
-- scaffolding
-- examples
-- revision prompts
-- feedback wording
-
-AI should not be treated as the default authoritative writing scorer.
-
-## Architecture Boundary
-
-- K12 database work is being developed as a separate data-layer track
-- Do not assume the current app has already been migrated to a K12-driven architecture
-- Unless explicitly requested, preserve the existing objective-question flow and avoid broad rewrites
+**K12 data layer** (`db/k12_learning_engine_init.sql`): separate architecture track, not yet the app backbone. Do not assume migration has happened.
 
 ## Source of Truth
 
-When product direction is unclear, align with:
-
-1. `thinkering_quill_prd.md`
-2. `DESIGN.md`
+When product direction is unclear:
+1. `docs/product/thinkering_quill_prd.md`
+2. `docs/product/DESIGN.md`
 3. `README.md`
